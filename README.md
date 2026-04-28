@@ -1,6 +1,6 @@
 # Angle Creator
 
-A lightweight, frontend-only tool for creating pie charts and angle guides. Built with React, TypeScript, and HTML Canvas — no backend required.
+A lightweight, frontend-only tool for creating pie charts and angle guides. Built with React, TypeScript, and HTML Canvas - no backend required.
 
 ## Features
 
@@ -11,7 +11,7 @@ A lightweight, frontend-only tool for creating pie charts and angle guides. Buil
 - Three display modes: **color**, **3D drop-shadow**, or **black & white**
 - Three shape options: **circle**, **rounded square**, or **square**
 - Toggle segment labels and legend independently
-- Adjustable canvas size (200–800px)
+- Adjustable canvas size (200-800px)
 - Export to **PNG**, **JPEG**, or **PDF**
 
 ### Angle Guide
@@ -83,11 +83,11 @@ angle-creator/
 
 ## Use Cases
 
-- **Presentations** — quickly generate pie charts with exact angle values for slides or reports.
-- **Education** — create angle diagrams for math, geometry, or trigonometry lessons. Students can see how relative and absolute angles relate.
-- **Design mockups** — export clean pie charts or angle guides as images for use in design tools.
-- **Data visualization prototyping** — experiment with segment sizes using different units (%, °, rad, gon) before committing to a charting library.
-- **Print materials** — export to PDF for worksheets, handouts, or posters with precise angle measurements.
+- **Presentations** - quickly generate pie charts with exact angle values for slides or reports.
+- **Education** - create angle diagrams for math, geometry, or trigonometry lessons. Students can see how relative and absolute angles relate.
+- **Design mockups** - export clean pie charts or angle guides as images for use in design tools.
+- **Data visualization prototyping** - experiment with segment sizes using different units (%, °, rad, gon) before committing to a charting library.
+- **Print materials** - export to PDF for worksheets, handouts, or posters with precise angle measurements.
 
 ## Tech Stack
 
