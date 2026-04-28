@@ -31,20 +31,35 @@ function exportImage(
 }
 
 function exportPdf(canvas: HTMLCanvasElement, filename: string): void {
-  // Use the logical CSS size for the PDF page dimensions
-  const cssW = parseFloat(canvas.style.width) || canvas.width;
-  const cssH = parseFloat(canvas.style.height) || canvas.height;
-
   // Embed as JPEG for smaller PDF file size
   const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
+  // Letter page: 8.5" × 11" in points (1 pt = 1/72 in)
   const pdf = new jsPDF({
-    orientation: cssW >= cssH ? 'landscape' : 'portrait',
-    unit: 'px',
-    format: [cssW, cssH],
+    orientation: 'portrait',
+    unit: 'in',
+    format: 'letter',
   });
-  // The high-res canvas image fills the logical page exactly
-  pdf.addImage(imgData, 'JPEG', 0, 0, cssW, cssH);
+
+  // Page dimensions in inches
+  const pageW = 8.5;
+  const pageH = 11;
+  const margin = 0.75;
+
+  // Scale the image to fit within the margins, preserving aspect ratio
+  const maxW = pageW - margin * 2;
+  const maxH = pageH - margin * 2;
+  const imgW = canvas.width;
+  const imgH = canvas.height;
+  const scale = Math.min(maxW / imgW, maxH / imgH);
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+
+  // Center on the page
+  const x = (pageW - drawW) / 2;
+  const y = (pageH - drawH) / 2;
+
+  pdf.addImage(imgData, 'JPEG', x, y, drawW, drawH);
   pdf.save(`${filename}.pdf`);
 }
 
