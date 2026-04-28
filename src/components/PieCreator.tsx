@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { PieSegment, PieSettings, AngleUnit, ShapeType, DisplayMode, ExportFormat } from '../types';
-import { paletteColor } from '../utils/colors';
+import type { PieSegment, PieSettings, AngleUnit, ShapeType, DisplayMode, ExportFormat, LegendPosition } from '../types';
+import { paletteColor, bwShade } from '../utils/colors';
 import { drawPie } from '../utils/drawPie';
 import { exportCanvas } from '../utils/export';
 import { uid } from '../utils/uid';
@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: PieSettings = {
   displayMode: 'color',
   showLabels: true,
   showLegend: true,
+  legendPosition: 'left',
   canvasSize: 500,
 };
 
@@ -30,9 +31,13 @@ export default function PieCreator() {
 
   const redraw = useCallback(() => {
     if (canvasRef.current) {
-      drawPie(canvasRef.current, segments, settings);
+      drawPie(canvasRef.current, segments, settings, undefined, true);
     }
   }, [segments, settings]);
+
+  const legendColors = segments.map((s, i) =>
+    settings.displayMode === 'bw' ? bwShade(i, segments.length) : s.color
+  );
 
   useEffect(() => {
     redraw();
@@ -144,6 +149,23 @@ export default function PieCreator() {
           </label>
         </div>
 
+        {settings.showLegend && (
+          <div className="control-group">
+            <label>Legend Position</label>
+            <div className="btn-group">
+              {(['left', 'right', 'top', 'bottom'] as LegendPosition[]).map((pos) => (
+                <button
+                  key={pos}
+                  className={settings.legendPosition === pos ? 'active' : ''}
+                  onClick={() => setSettings((p) => ({ ...p, legendPosition: pos }))}
+                >
+                  {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="control-group">
           <label>Canvas Size: {settings.canvasSize}px</label>
           <input
@@ -226,7 +248,19 @@ export default function PieCreator() {
 
       {/* Canvas Preview */}
       <div className="panel preview-panel">
-        <canvas ref={canvasRef} className="preview-canvas" />
+        <div className={`pie-with-legend legend-${settings.showLegend ? settings.legendPosition : 'none'}`}>
+          <canvas ref={canvasRef} className="preview-canvas" />
+          {settings.showLegend && (
+            <div className="pie-legend">
+              {segments.map((seg, i) => (
+                <div key={seg.id} className="pie-legend-item">
+                  <span className="pie-legend-swatch" style={{ background: legendColors[i] }} />
+                  <span className="pie-legend-label">{seg.label || `Segment ${i + 1}`}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

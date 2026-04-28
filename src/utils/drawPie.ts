@@ -7,7 +7,8 @@ export function drawPie(
   canvas: HTMLCanvasElement,
   segments: PieSegment[],
   settings: PieSettings,
-  dprOverride?: number
+  dprOverride?: number,
+  skipLegend?: boolean
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -101,7 +102,7 @@ export function drawPie(
   }
 
   // Legend
-  if (settings.showLegend) {
+  if (settings.showLegend && !skipLegend) {
     drawLegend(ctx, segments, fillColors, size);
   }
 }

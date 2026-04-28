@@ -4,6 +4,7 @@ export type ShapeType = 'circle' | 'rounded-square' | 'square';
 export type AngleUnit = 'percentage' | 'degrees' | 'radians' | 'gradians';
 export type DisplayMode = 'color' | '3d' | 'bw';
 export type ExportFormat = 'png' | 'jpeg' | 'pdf';
+export type LegendPosition = 'left' | 'right' | 'top' | 'bottom';
 
 // ── Pie Chart Types ──
 
@@ -20,6 +21,7 @@ export interface PieSettings {
   displayMode: DisplayMode;
   showLabels: boolean;
   showLegend: boolean;
+  legendPosition: LegendPosition;
   canvasSize: number;
 }
 

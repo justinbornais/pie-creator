@@ -185,6 +185,50 @@ body {
   height: auto;
 }
 
+/* ── Pie Legend ── */
+.pie-with-legend {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.pie-with-legend.legend-left { flex-direction: row; }
+.pie-with-legend.legend-right { flex-direction: row-reverse; }
+.pie-with-legend.legend-top { flex-direction: column-reverse; }
+.pie-with-legend.legend-bottom { flex-direction: column; }
+.pie-with-legend.legend-none { flex-direction: row; }
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pie-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.pie-legend-label {
+  font-size: 0.82rem;
+  color: var(--text-0);
+  white-space: nowrap;
+}
+
 /* ── Typography ── */
 h2 {
   font-size: 1rem;
