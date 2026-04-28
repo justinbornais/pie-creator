@@ -115,7 +115,7 @@ export function drawAngleGuide(
     ctx.stroke();
     ctx.restore();
 
-    // Draw relative angle label — stagger radii so overlapping labels separate
+    // Draw relative angle label - stagger radii so overlapping labels separate
     const arcRadius = Math.min(radius * 0.25, 30 + i * 12);
     const midAngleDeg = -(prevAbsDeg + absDeg) / 2; // CCW midpoint
     const midAngleRad = degToRad(midAngleDeg);
