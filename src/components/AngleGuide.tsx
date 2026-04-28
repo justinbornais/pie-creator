@@ -59,10 +59,11 @@ export default function AngleGuide() {
     setAngles((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const EXPORT_DPR = 3;
   const handleExport = (format: ExportFormat) => {
-    if (canvasRef.current) {
-      exportCanvas(canvasRef.current, format, 'angle-guide');
-    }
+    const offscreen = document.createElement('canvas');
+    drawAngleGuide(offscreen, angles, settings, EXPORT_DPR);
+    exportCanvas(offscreen, format, 'angle-guide');
   };
 
   const unit = unitLabel(settings.angleUnit);

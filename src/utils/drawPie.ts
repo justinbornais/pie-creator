@@ -6,13 +6,14 @@ import { applyShapeClip, drawShapeOutline, drawArcLabel } from './shapes';
 export function drawPie(
   canvas: HTMLCanvasElement,
   segments: PieSegment[],
-  settings: PieSettings
+  settings: PieSettings,
+  dprOverride?: number
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
   const size = settings.canvasSize;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = dprOverride ?? (window.devicePixelRatio || 1);
   canvas.width = size * dpr;
   canvas.height = size * dpr;
   canvas.style.width = `${size}px`;

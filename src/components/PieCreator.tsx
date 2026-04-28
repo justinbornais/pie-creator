@@ -56,10 +56,11 @@ export default function PieCreator() {
     setSegments((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const EXPORT_DPR = 3;
   const handleExport = (format: ExportFormat) => {
-    if (canvasRef.current) {
-      exportCanvas(canvasRef.current, format, 'pie-chart');
-    }
+    const offscreen = document.createElement('canvas');
+    drawPie(offscreen, segments, settings, EXPORT_DPR);
+    exportCanvas(offscreen, format, 'pie-chart');
   };
 
   const unit = unitLabel(settings.angleUnit);

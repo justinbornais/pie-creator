@@ -1,26 +1,11 @@
 import { jsPDF } from 'jspdf';
 import type { ExportFormat } from '../types';
 
-/** Fixed export scale relative to the logical canvas size, independent of display DPR */
-const EXPORT_SCALE = 2;
-
 /**
- * Build an off-screen canvas at EXPORT_SCALE × the logical CSS size of the source,
- * then copy the source into it. This ensures consistent, crisp exports regardless
- * of the display's devicePixelRatio.
+ * Export a canvas that was already rendered at the desired resolution.
+ * The caller is responsible for providing a high-DPR canvas (e.g. drawn at 3×)
+ * so no scaling is applied here — avoiding any blurriness from drawImage upsampling.
  */
-function buildExportCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
-  const cssW = parseFloat(source.style.width) || source.width;
-  const cssH = parseFloat(source.style.height) || source.height;
-  const offscreen = document.createElement('canvas');
-  offscreen.width = cssW * EXPORT_SCALE;
-  offscreen.height = cssH * EXPORT_SCALE;
-  const ctx = offscreen.getContext('2d')!;
-  ctx.drawImage(source, 0, 0, offscreen.width, offscreen.height);
-  return offscreen;
-}
-
-/** Export a canvas element to the given format and trigger a download */
 export function exportCanvas(
   canvas: HTMLCanvasElement,
   format: ExportFormat,
@@ -34,33 +19,31 @@ export function exportCanvas(
 }
 
 function exportImage(
-  source: HTMLCanvasElement,
+  canvas: HTMLCanvasElement,
   format: 'png' | 'jpeg',
   filename: string
 ): void {
-  const exportCanvas = buildExportCanvas(source);
   const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
   const ext = format === 'png' ? 'png' : 'jpg';
-  // JPEG quality 0.88 balances sharpness and file size; quality param is ignored for PNG
-  const dataUrl = exportCanvas.toDataURL(mimeType, 0.88);
+  // PNG is lossless; JPEG at 0.92 balances sharpness and file size
+  const dataUrl = canvas.toDataURL(mimeType, 0.92);
   triggerDownload(dataUrl, `${filename}.${ext}`);
 }
 
-function exportPdf(source: HTMLCanvasElement, filename: string): void {
-  // Use the logical CSS dimensions for the PDF page so it has a reasonable physical size
-  const cssW = parseFloat(source.style.width) || source.width;
-  const cssH = parseFloat(source.style.height) || source.height;
+function exportPdf(canvas: HTMLCanvasElement, filename: string): void {
+  // Use the logical CSS size for the PDF page dimensions
+  const cssW = parseFloat(canvas.style.width) || canvas.width;
+  const cssH = parseFloat(canvas.style.height) || canvas.height;
 
-  // Render at 2× into an offscreen canvas and embed as JPEG for smaller PDF files
-  const exportCanvas = buildExportCanvas(source);
-  const imgData = exportCanvas.toDataURL('image/jpeg', 0.92);
+  // Embed as JPEG for smaller PDF file size
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
   const pdf = new jsPDF({
     orientation: cssW >= cssH ? 'landscape' : 'portrait',
     unit: 'px',
     format: [cssW, cssH],
   });
-  // Place the high-res image scaled to fill the logical page dimensions
+  // The high-res canvas image fills the logical page exactly
   pdf.addImage(imgData, 'JPEG', 0, 0, cssW, cssH);
   pdf.save(`${filename}.pdf`);
 }
