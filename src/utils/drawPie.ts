@@ -31,8 +31,6 @@ export function drawPie(
 
   const cx = size / 2;
   const cy = size / 2;
-  const margin = size * 0.06;
-  const radius = size / 2 - margin;
 
   // Convert values to degrees
   const degreesArr = segments.map((s) => {
@@ -45,6 +43,28 @@ export function drawPie(
   const normFactor = totalDegrees > 0 ? 360 / totalDegrees : 1;
 
   const normalizedDeg = degreesArr.map((d) => d * normFactor);
+
+  // Pre-compute display labels
+  const labels = segments.map((s, i) => s.label || `${Math.round(normalizedDeg[i] / 3.6)}%`);
+
+  // Determine margin — if any labels need extender lines, expand it so there
+  // is room outside the pie for the leader lines and text.
+  let margin = size * 0.06;
+  let radius = size / 2 - margin;
+
+  if (settings.showLabels) {
+    const testFontSize = Math.max(10, Math.min(14, radius * 0.1));
+    ctx.font = `bold ${testFontSize}px Inter, system-ui, sans-serif`;
+    const anyNeedsExtender = normalizedDeg.some((deg, i) => {
+      if (deg <= 8) return false;
+      const chord = 2 * (radius * 0.65) * Math.sin(degToRad(deg / 2));
+      return ctx.measureText(labels[i]).width >= chord * 0.85;
+    });
+    if (anyNeedsExtender) {
+      margin = size * 0.18;
+      radius = size / 2 - margin;
+    }
+  }
 
   // Determine fill colors
   const fillColors = segments.map((s, i) => {
@@ -81,23 +101,26 @@ export function drawPie(
   if (settings.showLabels) {
     let angleCursor = -90;
     const fontSize = Math.max(10, Math.min(14, radius * 0.1));
+    ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+
     for (let i = 0; i < segments.length; i++) {
       const sweep = normalizedDeg[i];
-      if (sweep > 8) {
-        // only draw label if segment is big enough
-        drawArcLabel(
-          ctx,
-          cx,
-          cy,
-          radius,
-          angleCursor,
-          angleCursor + sweep,
-          segments[i].label || `${Math.round(normalizedDeg[i] / 3.6)}%`,
-          '#fff',
-          fontSize
-        );
-      }
+      const label = labels[i];
+      const startAngle = angleCursor;
       angleCursor += sweep;
+
+      if (sweep <= 8) continue;
+
+      // Check if the label fits inside the segment at the label radius (65% of radius).
+      // The chord length at that radius for this sweep angle is the available width.
+      const chord = 2 * (radius * 0.65) * Math.sin(degToRad(sweep / 2));
+      const textWidth = ctx.measureText(label).width;
+
+      if (textWidth < chord * 0.85) {
+        drawArcLabel(ctx, cx, cy, radius, startAngle, startAngle + sweep, label, '#fff', fontSize);
+      } else {
+        drawExtenderLabel(ctx, cx, cy, radius, startAngle, startAngle + sweep, label, fontSize);
+      }
     }
   }
 
@@ -105,6 +128,57 @@ export function drawPie(
   if (settings.showLegend && !skipLegend) {
     drawLegend(ctx, segments, fillColors, size);
   }
+}
+
+/**
+ * Draws a leader line from the pie edge to a label outside the chart.
+ * Used when the label text is too wide to fit inside the segment.
+ */
+function drawExtenderLabel(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngleDeg: number,
+  endAngleDeg: number,
+  label: string,
+  fontSize: number
+): void {
+  const midAngleDeg = (startAngleDeg + endAngleDeg) / 2;
+  const midAngleRad = degToRad(midAngleDeg);
+
+  const lineStart = radius + 2;  // just outside the pie edge
+  const lineEnd = radius + 16;   // end of the radial segment
+  const tickLen = 12;            // length of the horizontal cap
+
+  const x1 = cx + Math.cos(midAngleRad) * lineStart;
+  const y1 = cy + Math.sin(midAngleRad) * lineStart;
+  const x2 = cx + Math.cos(midAngleRad) * lineEnd;
+  const y2 = cy + Math.sin(midAngleRad) * lineEnd;
+
+  const onRight = Math.cos(midAngleRad) >= 0;
+  const x3 = x2 + (onRight ? tickLen : -tickLen);
+  const y3 = y2;
+
+  ctx.save();
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x3, y3);
+  ctx.stroke();
+
+  ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = onRight ? 'left' : 'right';
+  const textX = x3 + (onRight ? 3 : -3);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillText(label, textX + 1, y3 + 1);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.fillText(label, textX, y3);
+  ctx.restore();
 }
 
 function drawPieSlices(

@@ -23,6 +23,7 @@ const mockGetContext = vi.fn(() => ({
   roundRect: vi.fn(),
   setLineDash: vi.fn(),
   toDataURL: vi.fn(() => 'data:image/png;base64,'),
+  measureText: vi.fn(() => ({ width: 0 })),
   canvas: { width: 500, height: 500 },
   fillStyle: '',
   strokeStyle: '',
