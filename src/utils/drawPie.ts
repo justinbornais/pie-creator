@@ -1,6 +1,6 @@
 import type { PieSegment, PieSettings } from '../types';
 import { degToRad, toDegrees } from './math';
-import { darkenColor, bwShade } from './colors';
+import { drawPie3d } from './drawPie3d';
 import { applyShapeClip, drawShapeOutline, drawArcLabel } from './shapes';
 
 export function drawPie(
@@ -47,6 +47,13 @@ export function drawPie(
   // Pre-compute display labels
   const labels = segments.map((s, i) => s.label || `${Math.round(normalizedDeg[i] / 3.6)}%`);
 
+  const fillColors = segments.map((s) => s.color);
+
+  if (settings.displayMode === '3d') {
+    drawPie3d(ctx, segments, normalizedDeg, settings, fillColors, labels);
+    return;
+  }
+
   // Determine margin — if any labels need extender lines, expand it so there
   // is room outside the pie for the leader lines and text.
   let margin = size * 0.06;
@@ -66,27 +73,10 @@ export function drawPie(
     }
   }
 
-  // Determine fill colors
-  const fillColors = segments.map((s, i) => {
-    if (settings.displayMode === 'bw') return bwShade(i, segments.length);
-    return s.color;
-  });
-
   // For non-circle shapes the arc must extend beyond the clip boundary
   // so the clip path cuts the wedges into the desired shape.
   // √2 * radius reaches the corners of the bounding square.
   const arcRadius = settings.shape === 'circle' ? radius : radius * Math.SQRT2;
-
-  // 3D effect: draw shadow layers
-  if (settings.displayMode === '3d') {
-    const shadowDepth = Math.max(6, radius * 0.04);
-    for (let layer = shadowDepth; layer > 0; layer--) {
-      ctx.save();
-      applyShapeClip(ctx, cx, cy + layer, radius, settings.shape);
-      drawPieSlices(ctx, cx, cy + layer, arcRadius, normalizedDeg, fillColors.map((c) => darkenColor(c, 0.4)));
-      ctx.restore();
-    }
-  }
 
   // Main pie
   ctx.save();
@@ -95,7 +85,7 @@ export function drawPie(
   ctx.restore();
 
   // Border
-  drawShapeOutline(ctx, cx, cy, radius, settings.shape, settings.displayMode === 'bw' ? '#333' : '#1e1e2e', 2);
+  drawShapeOutline(ctx, cx, cy, radius, settings.shape, '#1e1e2e', 2);
 
   // Labels
   if (settings.showLabels) {

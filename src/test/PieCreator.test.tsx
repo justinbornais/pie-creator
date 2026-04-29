@@ -28,6 +28,7 @@ const mockGetContext = vi.fn(() => ({
   fillStyle: '',
   strokeStyle: '',
   lineWidth: 1,
+  lineJoin: 'miter',
   font: '',
   textAlign: '',
   textBaseline: '',
@@ -73,9 +74,23 @@ describe('PieCreator', () => {
 
   it('changes display mode', () => {
     render(<PieCreator />);
-    const bwBtn = screen.getByText('B&W');
-    fireEvent.click(bwBtn);
-    expect(bwBtn.classList.contains('active')).toBe(true);
+    const threeDBtn = screen.getByText('3D');
+    fireEvent.click(threeDBtn);
+    expect(threeDBtn.classList.contains('active')).toBe(true);
+    expect(screen.getByLabelText('X Rotation')).toBeInTheDocument();
+    expect(screen.getByText('Reset Orientation')).toBeInTheDocument();
+  });
+
+  it('resets orientation controls to defaults', () => {
+    render(<PieCreator />);
+    fireEvent.click(screen.getByText('3D'));
+
+    const xRotation = screen.getByLabelText('X Rotation') as HTMLInputElement;
+    fireEvent.change(xRotation, { target: { value: '12' } });
+    expect(xRotation.value).toBe('12');
+
+    fireEvent.click(screen.getByText('Reset Orientation'));
+    expect(xRotation.value).toBe('58');
   });
 
   it('toggles labels checkbox', () => {

@@ -1,0 +1,264 @@
+import type { PieSettings, PieSegment } from '../types';
+import { darkenColor } from './colors';
+import { degToRad } from './math';
+
+interface Point3D {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface ProjectedPoint extends Point3D {
+  sx: number;
+  sy: number;
+}
+
+interface Face {
+  points: ProjectedPoint[];
+  fill: string;
+  stroke?: string;
+  avgZ: number;
+}
+
+interface LabelPlacement {
+  startAngle: number;
+  endAngle: number;
+  label: string;
+}
+
+export function drawPie3d(
+  ctx: CanvasRenderingContext2D,
+  segments: PieSegment[],
+  normalizedDeg: number[],
+  settings: PieSettings,
+  fillColors: string[],
+  labels: string[]
+): void {
+  const size = settings.canvasSize;
+  const cx = size / 2;
+  const cy = size / 2 + size * 0.02;
+  const radius = size * (settings.showLabels ? 0.25 : 0.29);
+  const depth = Math.max(18, radius * 0.24);
+  const cameraDistance = radius * 6;
+  const topPlaneZ = depth / 2;
+  const bottomPlaneZ = -depth / 2;
+
+  const rotation = {
+    x: degToRad(settings.rotationX),
+    y: degToRad(settings.rotationY),
+    z: degToRad(settings.rotationZ),
+  };
+
+  const projectPoint = (point: Point3D): ProjectedPoint => {
+    const rotated = rotatePoint(point, rotation.x, rotation.y, rotation.z);
+    const scale = cameraDistance / (cameraDistance - rotated.z);
+    return {
+      ...rotated,
+      sx: cx + rotated.x * scale,
+      sy: cy + rotated.y * scale,
+    };
+  };
+
+  const topCenter = projectPoint({ x: 0, y: 0, z: topPlaneZ });
+  const bottomCenter = projectPoint({ x: 0, y: 0, z: bottomPlaneZ });
+  const labelPlaneZ = topCenter.z >= bottomCenter.z ? topPlaneZ : bottomPlaneZ;
+  const labelColor = topCenter.z >= bottomCenter.z ? '#f8fafc' : '#cbd5e1';
+
+  const faces: Face[] = [];
+  const placements: LabelPlacement[] = [];
+
+  let angleCursor = -90;
+  for (let i = 0; i < segments.length; i++) {
+    const startAngle = angleCursor;
+    const sweep = normalizedDeg[i];
+    const endAngle = startAngle + sweep;
+    angleCursor = endAngle;
+
+    const steps = Math.max(10, Math.ceil(sweep / 6));
+    const topArc: ProjectedPoint[] = [];
+    const bottomArc: ProjectedPoint[] = [];
+
+    for (let step = 0; step <= steps; step++) {
+      const t = step / steps;
+      const angle = startAngle + sweep * t;
+      const angleRad = degToRad(angle);
+      const rimPoint = {
+        x: Math.cos(angleRad) * radius,
+        y: Math.sin(angleRad) * radius,
+      };
+      topArc.push(projectPoint({ ...rimPoint, z: topPlaneZ }));
+      bottomArc.push(projectPoint({ ...rimPoint, z: bottomPlaneZ }));
+    }
+
+    faces.push({
+      points: [projectPoint({ x: 0, y: 0, z: bottomPlaneZ }), ...bottomArc],
+      fill: darkenColor(fillColors[i], 0.55),
+      avgZ: averageZ(bottomArc),
+    });
+
+    for (let step = 0; step < steps; step++) {
+      const quad = [topArc[step], topArc[step + 1], bottomArc[step + 1], bottomArc[step]];
+      const sideDarken = 0.32 + (step / steps) * 0.12;
+      faces.push({
+        points: quad,
+        fill: darkenColor(fillColors[i], sideDarken),
+        stroke: 'rgba(15, 23, 42, 0.18)',
+        avgZ: averageZ(quad),
+      });
+    }
+
+    faces.push({
+      points: [projectPoint({ x: 0, y: 0, z: topPlaneZ }), ...topArc],
+      fill: fillColors[i],
+      stroke: 'rgba(15, 23, 42, 0.22)',
+      avgZ: averageZ(topArc) + 0.001,
+    });
+
+    placements.push({
+      startAngle,
+      endAngle,
+      label: labels[i],
+    });
+  }
+
+  faces.sort((a, b) => a.avgZ - b.avgZ);
+
+  for (const face of faces) {
+    if (face.points.length < 3) continue;
+    ctx.beginPath();
+    ctx.moveTo(face.points[0].sx, face.points[0].sy);
+    for (let i = 1; i < face.points.length; i++) {
+      ctx.lineTo(face.points[i].sx, face.points[i].sy);
+    }
+    ctx.closePath();
+    ctx.fillStyle = face.fill;
+    ctx.fill();
+
+    if (face.stroke) {
+      ctx.strokeStyle = face.stroke;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  if (!settings.showLabels) {
+    return;
+  }
+
+  const fontSize = Math.max(10, Math.min(14, radius * 0.11));
+  ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+
+  for (const placement of placements) {
+    const sweep = placement.endAngle - placement.startAngle;
+    if (sweep <= 8) {
+      continue;
+    }
+
+    const midAngle = (placement.startAngle + placement.endAngle) / 2;
+    const insidePoint = projectPolarPoint(projectPoint, radius * 0.58, midAngle, labelPlaneZ);
+    const chordStart = projectPolarPoint(projectPoint, radius * 0.58, placement.startAngle, labelPlaneZ);
+    const chordEnd = projectPolarPoint(projectPoint, radius * 0.58, placement.endAngle, labelPlaneZ);
+    const availableWidth = distance2d(chordStart, chordEnd);
+    const textWidth = ctx.measureText(placement.label).width;
+
+    if (textWidth < availableWidth * 0.82) {
+      drawText(ctx, placement.label, insidePoint.sx, insidePoint.sy, 'center', labelColor);
+      continue;
+    }
+
+    drawExtenderLabel3d(ctx, projectPoint, radius, midAngle, labelPlaneZ, placement.label, labelColor);
+  }
+}
+
+function drawExtenderLabel3d(
+  ctx: CanvasRenderingContext2D,
+  projectPoint: (point: Point3D) => ProjectedPoint,
+  radius: number,
+  angleDeg: number,
+  planeZ: number,
+  label: string,
+  color: string
+): void {
+  const start = projectPolarPoint(projectPoint, radius * 1.02, angleDeg, planeZ);
+  const elbow = projectPolarPoint(projectPoint, radius * 1.18, angleDeg, planeZ);
+  const onRight = elbow.sx >= start.sx;
+  const endX = elbow.sx + (onRight ? 18 : -18);
+
+  ctx.save();
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(start.sx, start.sy);
+  ctx.lineTo(elbow.sx, elbow.sy);
+  ctx.lineTo(endX, elbow.sy);
+  ctx.stroke();
+  ctx.restore();
+
+  drawText(ctx, label, endX + (onRight ? 4 : -4), elbow.sy, onRight ? 'left' : 'right', color);
+}
+
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  x: number,
+  y: number,
+  align: CanvasTextAlign,
+  color: string
+): void {
+  ctx.save();
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+  ctx.fillText(label, x + 1, y + 1);
+  ctx.fillStyle = color;
+  ctx.fillText(label, x, y);
+  ctx.restore();
+}
+
+function projectPolarPoint(
+  projectPoint: (point: Point3D) => ProjectedPoint,
+  radius: number,
+  angleDeg: number,
+  z: number
+): ProjectedPoint {
+  const angleRad = degToRad(angleDeg);
+  return projectPoint({
+    x: Math.cos(angleRad) * radius,
+    y: Math.sin(angleRad) * radius,
+    z,
+  });
+}
+
+function distance2d(a: ProjectedPoint, b: ProjectedPoint): number {
+  return Math.hypot(b.sx - a.sx, b.sy - a.sy);
+}
+
+function averageZ(points: ProjectedPoint[]): number {
+  if (points.length === 0) return 0;
+  return points.reduce((sum, point) => sum + point.z, 0) / points.length;
+}
+
+function rotatePoint(point: Point3D, rx: number, ry: number, rz: number): Point3D {
+  const cosX = Math.cos(rx);
+  const sinX = Math.sin(rx);
+  const cosY = Math.cos(ry);
+  const sinY = Math.sin(ry);
+  const cosZ = Math.cos(rz);
+  const sinZ = Math.sin(rz);
+
+  let x = point.x;
+  let y = point.y * cosX - point.z * sinX;
+  let z = point.y * sinX + point.z * cosX;
+
+  const rotatedX = x * cosY + z * sinY;
+  const rotatedZ = -x * sinY + z * cosY;
+  x = rotatedX;
+  z = rotatedZ;
+
+  return {
+    x: x * cosZ - y * sinZ,
+    y: x * sinZ + y * cosZ,
+    z,
+  };
+}

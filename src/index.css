@@ -455,6 +455,25 @@ input[type='range'] {
   border-color: var(--accent);
 }
 
+.btn-secondary {
+  width: 100%;
+  padding: 9px 12px;
+  margin-top: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-0);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-3);
+  border-color: var(--accent);
+}
+
 .btn-icon {
   display: inline-flex;
   align-items: center;

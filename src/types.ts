@@ -2,7 +2,7 @@
 
 export type ShapeType = 'circle' | 'rounded-square' | 'square';
 export type AngleUnit = 'percentage' | 'degrees' | 'radians' | 'gradians';
-export type DisplayMode = 'color' | '3d' | 'bw';
+export type DisplayMode = '2d' | '3d';
 export type ExportFormat = 'png' | 'jpeg' | 'pdf';
 export type LegendPosition = 'left' | 'right' | 'top' | 'bottom';
 
@@ -19,6 +19,9 @@ export interface PieSettings {
   shape: ShapeType;
   angleUnit: AngleUnit;
   displayMode: DisplayMode;
+  rotationX: number;
+  rotationY: number;
+  rotationZ: number;
   showLabels: boolean;
   showLegend: boolean;
   legendPosition: LegendPosition;

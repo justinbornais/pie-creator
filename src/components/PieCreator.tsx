@@ -1,10 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { PieSegment, PieSettings, AngleUnit, ShapeType, DisplayMode, ExportFormat, LegendPosition } from '../types';
-import { paletteColor, bwShade } from '../utils/colors';
+import { paletteColor } from '../utils/colors';
 import { drawPie } from '../utils/drawPie';
 import { exportCanvas } from '../utils/export';
 import { uid } from '../utils/uid';
 import { unitLabel, fullRotation } from '../utils/math';
+
+const DEFAULT_PIE_ORIENTATION = {
+  rotationX: 58,
+  rotationY: -18,
+  rotationZ: 0,
+} as const;
 
 const DEFAULT_SEGMENTS: PieSegment[] = [
   { id: uid(), label: 'Category A', value: 30, color: paletteColor(0) },
@@ -17,7 +23,8 @@ const DEFAULT_SEGMENTS: PieSegment[] = [
 const DEFAULT_SETTINGS: PieSettings = {
   shape: 'circle',
   angleUnit: 'percentage',
-  displayMode: 'color',
+  displayMode: '2d',
+  ...DEFAULT_PIE_ORIENTATION,
   showLabels: true,
   showLegend: true,
   legendPosition: 'left',
@@ -35,9 +42,7 @@ export default function PieCreator() {
     }
   }, [segments, settings]);
 
-  const legendColors = segments.map((s, i) =>
-    settings.displayMode === 'bw' ? bwShade(i, segments.length) : s.color
-  );
+  const legendColors = segments.map((s) => s.color);
 
   useEffect(() => {
     redraw();
@@ -59,6 +64,18 @@ export default function PieCreator() {
 
   const removeSegment = (id: string) => {
     setSegments((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const setDisplayMode = (mode: DisplayMode) => {
+    setSettings((prev) => ({ ...prev, displayMode: mode }));
+  };
+
+  const updateRotation = (axis: 'rotationX' | 'rotationY' | 'rotationZ', value: number) => {
+    setSettings((prev) => ({ ...prev, [axis]: value }));
+  };
+
+  const resetOrientation = () => {
+    setSettings((prev) => ({ ...prev, ...DEFAULT_PIE_ORIENTATION }));
   };
 
   const EXPORT_DPR = 3;
@@ -111,20 +128,46 @@ export default function PieCreator() {
           <label>Display Mode</label>
           <div className="btn-group">
             {([
-              ['color', 'Color'],
-              ['3d', '3D Shadow'],
-              ['bw', 'B&W'],
+              ['2d', '2D'],
+              ['3d', '3D'],
             ] as [DisplayMode, string][]).map(([mode, lbl]) => (
               <button
                 key={mode}
                 className={settings.displayMode === mode ? 'active' : ''}
-                onClick={() => setSettings((p) => ({ ...p, displayMode: mode }))}
+                onClick={() => setDisplayMode(mode)}
               >
                 {lbl}
               </button>
             ))}
           </div>
         </div>
+
+        {settings.displayMode === '3d' && (
+          <>
+            <h3>Orientation</h3>
+            {([
+              ['rotationX', 'X Rotation'],
+              ['rotationY', 'Y Rotation'],
+              ['rotationZ', 'Z Rotation'],
+            ] as const).map(([axis, label]) => (
+              <div key={axis} className="control-group">
+                <label>{label}: {Math.round(settings[axis])}deg</label>
+                <input
+                  type="range"
+                  min={-180}
+                  max={180}
+                  step={1}
+                  value={settings[axis]}
+                  onChange={(e) => updateRotation(axis, Number(e.target.value))}
+                  aria-label={label}
+                />
+              </div>
+            ))}
+            <button className="btn-secondary" onClick={resetOrientation}>
+              Reset Orientation
+            </button>
+          </>
+        )}
 
         <div className="control-row">
           <label className="toggle-label">
@@ -200,7 +243,6 @@ export default function PieCreator() {
                       type="color"
                       value={seg.color}
                       onChange={(e) => updateSegment(seg.id, 'color', e.target.value)}
-                      disabled={settings.displayMode === 'bw'}
                     />
                   </td>
                   <td>
