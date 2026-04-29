@@ -31,6 +31,7 @@ interface LabelPlacement {
   startAngle: number;
   endAngle: number;
   label: string;
+  facePoints: ProjectedPoint[];
 }
 
 interface Pie3dExternalLabel {
@@ -79,8 +80,10 @@ export function drawPie3d(
 
   const topCenter = projectPoint({ x: 0, y: 0, z: topPlaneZ });
   const bottomCenter = projectPoint({ x: 0, y: 0, z: bottomPlaneZ });
-  const labelPlaneZ = topCenter.z >= bottomCenter.z ? topPlaneZ : bottomPlaneZ;
-  const labelColor = topCenter.z >= bottomCenter.z ? '#f8fafc' : '#cbd5e1';
+  const useTopLabelPlane = topCenter.z >= bottomCenter.z;
+  const labelPlaneZ = useTopLabelPlane ? topPlaneZ : bottomPlaneZ;
+  const labelCenter = useTopLabelPlane ? topCenter : bottomCenter;
+  const labelColor = useTopLabelPlane ? '#f8fafc' : '#cbd5e1';
   const topOutline = buildProjectedOutline(projectPoint, radius, topPlaneZ, settings.shape);
 
   const faces: Face[] = [];
@@ -136,6 +139,7 @@ export function drawPie3d(
       startAngle,
       endAngle,
       label: labels[i],
+      facePoints: [labelCenter, ...(useTopLabelPlane ? topArc : bottomArc)],
     });
   }
 
@@ -163,7 +167,8 @@ export function drawPie3d(
     return;
   }
 
-  const fontSize = Math.max(10, Math.min(14, radius * 0.11));
+  const fontSize = Math.max(10, Math.min(14, radius * 0.1));
+  const labelRadialScale = 0.65;
   ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
   const externalLabels: ExternalLabelCandidate<Pie3dExternalLabel>[] = [];
 
@@ -174,13 +179,16 @@ export function drawPie3d(
     }
 
     const midAngle = (placement.startAngle + placement.endAngle) / 2;
-    const insidePoint = projectShapePoint(projectPoint, radius, midAngle, labelPlaneZ, settings.shape, 0.58);
-    const chordStart = projectShapePoint(projectPoint, radius, placement.startAngle, labelPlaneZ, settings.shape, 0.58);
-    const chordEnd = projectShapePoint(projectPoint, radius, placement.endAngle, labelPlaneZ, settings.shape, 0.58);
-    const availableWidth = distance2d(chordStart, chordEnd);
+    const insidePoint = projectShapePoint(projectPoint, radius, midAngle, labelPlaneZ, settings.shape, labelRadialScale);
+    const chordStart = projectShapePoint(projectPoint, radius, placement.startAngle, labelPlaneZ, settings.shape, labelRadialScale);
+    const chordEnd = projectShapePoint(projectPoint, radius, placement.endAngle, labelPlaneZ, settings.shape, labelRadialScale);
+    const availableWidth = Math.max(
+      distance2d(chordStart, chordEnd),
+      measureProjectedFaceHorizontalSpan(placement.facePoints, insidePoint.sy, fontSize)
+    );
     const textWidth = ctx.measureText(placement.label).width;
 
-    if (textWidth < availableWidth * 0.82) {
+    if (textWidth < availableWidth * 0.85) {
       drawText(ctx, placement.label, insidePoint.sx, insidePoint.sy, 'center', labelColor);
       continue;
     }
@@ -317,6 +325,62 @@ function projectShapePoint(
 
 function distance2d(a: ProjectedPoint, b: ProjectedPoint): number {
   return Math.hypot(b.sx - a.sx, b.sy - a.sy);
+}
+
+export function measureProjectedFaceHorizontalSpan(
+  points: Array<{ sx: number; sy: number }>,
+  centerY: number,
+  textHeight: number
+): number {
+  if (points.length < 3) {
+    return 0;
+  }
+
+  const sampleOffsets = textHeight > 0 ? [-textHeight * 0.35, 0, textHeight * 0.35] : [0];
+  let narrowestSpan = Number.POSITIVE_INFINITY;
+
+  for (const offset of sampleOffsets) {
+    const intersections = collectHorizontalIntersections(points, centerY + offset);
+    if (intersections.length < 2) {
+      continue;
+    }
+
+    intersections.sort((a, b) => a - b);
+    narrowestSpan = Math.min(narrowestSpan, intersections[intersections.length - 1] - intersections[0]);
+  }
+
+  return Number.isFinite(narrowestSpan) ? narrowestSpan : 0;
+}
+
+function collectHorizontalIntersections(
+  points: Array<{ sx: number; sy: number }>,
+  targetY: number
+): number[] {
+  const intersections: number[] = [];
+
+  for (let index = 0; index < points.length; index++) {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+
+    if (Math.abs(start.sy - end.sy) <= 1e-6) {
+      if (Math.abs(targetY - start.sy) <= 1e-6) {
+        intersections.push(start.sx, end.sx);
+      }
+      continue;
+    }
+
+    const lower = start.sy < end.sy ? start : end;
+    const upper = start.sy < end.sy ? end : start;
+
+    if (targetY < lower.sy || targetY >= upper.sy) {
+      continue;
+    }
+
+    const ratio = (targetY - lower.sy) / (upper.sy - lower.sy);
+    intersections.push(lower.sx + (upper.sx - lower.sx) * ratio);
+  }
+
+  return intersections;
 }
 
 function averageZ(points: ProjectedPoint[]): number {
