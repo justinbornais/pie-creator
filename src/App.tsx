@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import PieCreator from './components/PieCreator';
 import AngleGuide from './components/AngleGuide';
+import { APP_DEFAULTS } from './config/defaults';
 
 type Tab = 'pie' | 'angle';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('pie');
-  const [greyscale, setGreyscale] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>(APP_DEFAULTS.activeTab);
+  const [greyscale, setGreyscale] = useState(APP_DEFAULTS.greyscale);
 
   return (
     <div className="app">

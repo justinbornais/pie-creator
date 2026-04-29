@@ -1,51 +1,34 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { PieSegment, PieSettings, AngleUnit, ShapeType, DisplayMode, ExportFormat, LegendPosition } from '../types';
+import type { PieSegment, PieSettings, AngleUnit, DisplayMode, ExportFormat } from '../types';
 import { bwShade, paletteColor } from '../utils/colors';
+import {
+  CANVAS_SIZE_RANGE,
+  EXPORT_SETTINGS,
+  LEGEND_POSITION_OPTIONS,
+  PIE_3D_INTERACTION,
+  PIE_3D_ROTATION_RANGE,
+  PIE_3D_THICKNESS_RANGE,
+  PIE_3D_ZOOM_RANGE,
+  PIE_ANGLE_UNIT_OPTIONS,
+  PIE_DEFAULTS,
+  PIE_DEFAULT_ORIENTATION,
+  PIE_DISPLAY_MODE_OPTIONS,
+  SHAPE_OPTIONS,
+  createDefaultPieSegments,
+  createDefaultPieSettings,
+} from '../config/defaults';
 import { drawPie } from '../utils/drawPie';
 import { exportCanvas } from '../utils/export';
 import { uid } from '../utils/uid';
 import { unitLabel, fullRotation } from '../utils/math';
-
-const DEFAULT_PIE_ORIENTATION = {
-  rotationX: 30,
-  rotationY: 0,
-  rotationZ: 0,
-} as const;
-
-const DEFAULT_THICKNESS_PERCENT = 12;
-const DEFAULT_ZOOM_PERCENT = 120;
-
-const DRAG_ROTATION_SENSITIVITY = 0.5;
-const WHEEL_ZOOM_SENSITIVITY = 0.05;
-
-const DEFAULT_SEGMENTS: PieSegment[] = [
-  { id: uid(), label: 'Category A', value: 30, color: paletteColor(0) },
-  { id: uid(), label: 'Category B', value: 25, color: paletteColor(1) },
-  { id: uid(), label: 'Category C', value: 20, color: paletteColor(2) },
-  { id: uid(), label: 'Category D', value: 15, color: paletteColor(3) },
-  { id: uid(), label: 'Category E', value: 10, color: paletteColor(4) },
-];
-
-const DEFAULT_SETTINGS: PieSettings = {
-  shape: 'circle',
-  angleUnit: 'percentage',
-  displayMode: '2d',
-  ...DEFAULT_PIE_ORIENTATION,
-  thicknessPercent: DEFAULT_THICKNESS_PERCENT,
-  zoomPercent: DEFAULT_ZOOM_PERCENT,
-  showLabels: true,
-  showLegend: true,
-  legendPosition: 'left',
-  canvasSize: 500,
-};
 
 interface PieCreatorProps {
   greyscale?: boolean;
 }
 
 export default function PieCreator({ greyscale = false }: PieCreatorProps) {
-  const [segments, setSegments] = useState<PieSegment[]>(DEFAULT_SEGMENTS);
-  const [settings, setSettings] = useState<PieSettings>(DEFAULT_SETTINGS);
+  const [segments, setSegments] = useState<PieSegment[]>(() => createDefaultPieSegments());
+  const [settings, setSettings] = useState<PieSettings>(() => createDefaultPieSettings());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragStateRef = useRef<{
     pointerId: number | 'mouse';
@@ -82,7 +65,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
     const idx = segments.length;
     setSegments((prev) => [
       ...prev,
-      { id: uid(), label: `Segment ${idx + 1}`, value: 10, color: paletteColor(idx) },
+      { id: uid(), label: `Segment ${idx + 1}`, value: PIE_DEFAULTS.newSegmentValue, color: paletteColor(idx) },
     ]);
   };
 
@@ -101,7 +84,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
   const updateThickness = (value: number) => {
     setSettings((prev) => ({
       ...prev,
-      thicknessPercent: Math.min(100, Math.max(0.1, value)),
+      thicknessPercent: Math.min(PIE_3D_THICKNESS_RANGE.max, Math.max(PIE_3D_THICKNESS_RANGE.min, value)),
     }));
   };
 
@@ -113,7 +96,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
   };
 
   const resetOrientation = () => {
-    setSettings((prev) => ({ ...prev, ...DEFAULT_PIE_ORIENTATION }));
+    setSettings((prev) => ({ ...prev, ...PIE_DEFAULT_ORIENTATION }));
   };
 
   const startDrag = (pointerId: number | 'mouse', clientX: number, clientY: number) => {
@@ -141,8 +124,8 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
 
     setSettings((prev) => ({
       ...prev,
-      rotationX: clampRotation(dragState.rotationX + deltaY * DRAG_ROTATION_SENSITIVITY),
-      rotationY: normalizeRotation(dragState.rotationY + deltaX * DRAG_ROTATION_SENSITIVITY),
+      rotationX: clampRotation(dragState.rotationX + deltaY * PIE_3D_INTERACTION.dragRotationSensitivity),
+      rotationY: normalizeRotation(dragState.rotationY + deltaX * PIE_3D_INTERACTION.dragRotationSensitivity),
     }));
   };
 
@@ -186,13 +169,12 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
     }
 
     event.preventDefault();
-    updateZoom(settings.zoomPercent - event.deltaY * WHEEL_ZOOM_SENSITIVITY);
+    updateZoom(settings.zoomPercent - event.deltaY * PIE_3D_INTERACTION.wheelZoomSensitivity);
   };
 
-  const EXPORT_DPR = 3;
   const handleExport = (format: ExportFormat) => {
     const offscreen = document.createElement('canvas');
-    drawPie(offscreen, renderSegments, settings, EXPORT_DPR);
+    drawPie(offscreen, renderSegments, settings, EXPORT_SETTINGS.dpr);
     exportCanvas(offscreen, format, 'pie-chart');
   };
 
@@ -208,13 +190,13 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
         <div className="control-group">
           <label>Shape</label>
           <div className="btn-group">
-            {(['circle', 'rounded-square', 'square'] as ShapeType[]).map((s) => (
+            {SHAPE_OPTIONS.map(({ value, label }) => (
               <button
-                key={s}
-                className={settings.shape === s ? 'active' : ''}
-                onClick={() => setSettings((p) => ({ ...p, shape: s }))}
+                key={value}
+                className={settings.shape === value ? 'active' : ''}
+                onClick={() => setSettings((p) => ({ ...p, shape: value }))}
               >
-                {s === 'rounded-square' ? 'Rounded' : s.charAt(0).toUpperCase() + s.slice(1)}
+                {label}
               </button>
             ))}
           </div>
@@ -228,26 +210,22 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
               setSettings((p) => ({ ...p, angleUnit: e.target.value as AngleUnit }))
             }
           >
-            <option value="percentage">Percentage (%)</option>
-            <option value="degrees">Degrees (°)</option>
-            <option value="radians">Radians (rad)</option>
-            <option value="gradians">Gradians (gon)</option>
+            {PIE_ANGLE_UNIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
 
         <div className="control-group">
           <label>Display Mode</label>
           <div className="btn-group">
-            {([
-              ['2d', '2D'],
-              ['3d', '3D'],
-            ] as [DisplayMode, string][]).map(([mode, lbl]) => (
+            {PIE_DISPLAY_MODE_OPTIONS.map(({ value, label }) => (
               <button
-                key={mode}
-                className={settings.displayMode === mode ? 'active' : ''}
-                onClick={() => setDisplayMode(mode)}
+                key={value}
+                className={settings.displayMode === value ? 'active' : ''}
+                onClick={() => setDisplayMode(value)}
               >
-                {lbl}
+                {label}
               </button>
             ))}
           </div>
@@ -265,9 +243,9 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
                 <label>{label}: {Math.round(settings[axis])}deg</label>
                 <input
                   type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
+                  min={PIE_3D_ROTATION_RANGE.min}
+                  max={PIE_3D_ROTATION_RANGE.max}
+                  step={PIE_3D_ROTATION_RANGE.step}
                   value={settings[axis]}
                   onChange={(e) => updateRotation(axis, Number(e.target.value))}
                   aria-label={label}
@@ -278,9 +256,9 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
               <label>Zoom: {Math.round(settings.zoomPercent)}%</label>
               <input
                 type="range"
-                min={10}
-                max={200}
-                step={1}
+                min={PIE_3D_ZOOM_RANGE.min}
+                max={PIE_3D_ZOOM_RANGE.max}
+                step={PIE_3D_ZOOM_RANGE.step}
                 value={settings.zoomPercent}
                 onChange={(e) => updateZoom(Number(e.target.value))}
                 aria-label="Zoom"
@@ -290,9 +268,9 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
               <label>Thickness: {Math.round(settings.thicknessPercent)}% of diameter</label>
               <input
                 type="range"
-                min={0.1}
-                max={100}
-                step={0.1}
+                min={PIE_3D_THICKNESS_RANGE.min}
+                max={PIE_3D_THICKNESS_RANGE.max}
+                step={PIE_3D_THICKNESS_RANGE.step}
                 value={settings.thicknessPercent}
                 onChange={(e) => updateThickness(Number(e.target.value))}
                 aria-label="Thickness"
@@ -331,7 +309,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
           <div className="control-group">
             <label>Legend Position</label>
             <div className="btn-group">
-              {(['left', 'right', 'top', 'bottom'] as LegendPosition[]).map((pos) => (
+              {LEGEND_POSITION_OPTIONS.map((pos) => (
                 <button
                   key={pos}
                   className={settings.legendPosition === pos ? 'active' : ''}
@@ -348,9 +326,9 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
           <label>Canvas Size: {settings.canvasSize}px</label>
           <input
             type="range"
-            min={200}
-            max={800}
-            step={50}
+            min={CANVAS_SIZE_RANGE.min}
+            max={CANVAS_SIZE_RANGE.max}
+            step={CANVAS_SIZE_RANGE.step}
             value={settings.canvasSize}
             onChange={(e) =>
               setSettings((p) => ({ ...p, canvasSize: Number(e.target.value) }))
@@ -417,9 +395,9 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
         {/* Export */}
         <h3>Export</h3>
         <div className="btn-group export-group">
-          <button onClick={() => handleExport('png')}>PNG</button>
-          <button onClick={() => handleExport('jpeg')}>JPEG</button>
-          <button onClick={() => handleExport('pdf')}>PDF</button>
+          {EXPORT_SETTINGS.formats.map((format) => (
+            <button key={format} onClick={() => handleExport(format)}>{format.toUpperCase()}</button>
+          ))}
         </div>
       </div>
 
@@ -469,5 +447,5 @@ function normalizeRotation(value: number): number {
 }
 
 function clampZoomPercent(value: number): number {
-  return Math.min(200, Math.max(10, value));
+  return Math.min(PIE_3D_ZOOM_RANGE.max, Math.max(PIE_3D_ZOOM_RANGE.min, value));
 }

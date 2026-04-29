@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PieCreator from '../components/PieCreator';
+import { PIE_DEFAULTS, PIE_DEFAULT_ORIENTATION } from '../config/defaults';
 
 // Mock canvas methods since jsdom doesn't support canvas
 const mockGetContext = vi.fn(() => ({
@@ -92,7 +93,7 @@ describe('PieCreator', () => {
     expect(xRotation.value).toBe('12');
 
     fireEvent.click(screen.getByText('Reset Orientation'));
-    expect(xRotation.value).toBe('30');
+    expect(xRotation.value).toBe(String(PIE_DEFAULT_ORIENTATION.rotationX));
   });
 
   it('rotates the 3d preview by dragging the canvas', () => {
@@ -103,8 +104,8 @@ describe('PieCreator', () => {
     const xRotation = screen.getByLabelText('X Rotation') as HTMLInputElement;
     const yRotation = screen.getByLabelText('Y Rotation') as HTMLInputElement;
 
-    expect(xRotation.value).toBe('30');
-    expect(yRotation.value).toBe('0');
+    expect(xRotation.value).toBe(String(PIE_DEFAULT_ORIENTATION.rotationX));
+    expect(yRotation.value).toBe(String(PIE_DEFAULT_ORIENTATION.rotationY));
 
     fireEvent.mouseDown(previewCanvas, { clientX: 100, clientY: 100 });
     fireEvent.mouseMove(previewCanvas, { clientX: 140, clientY: 120 });
@@ -119,7 +120,7 @@ describe('PieCreator', () => {
     fireEvent.click(screen.getByText('3D'));
 
     const thickness = screen.getByLabelText('Thickness') as HTMLInputElement;
-    expect(thickness.value).toBe('12');
+    expect(thickness.value).toBe(String(PIE_DEFAULTS.thicknessPercent));
   });
 
   it('uses a larger default 3d zoom', () => {
@@ -127,7 +128,7 @@ describe('PieCreator', () => {
     fireEvent.click(screen.getByText('3D'));
 
     const zoom = screen.getByLabelText('Zoom') as HTMLInputElement;
-    expect(zoom.value).toBe('120');
+    expect(zoom.value).toBe(String(PIE_DEFAULTS.zoomPercent));
   });
 
   it('zooms the 3d preview with the scroll wheel', () => {
@@ -137,7 +138,7 @@ describe('PieCreator', () => {
     const previewCanvas = screen.getByTestId('pie-preview-canvas');
     const zoom = screen.getByLabelText('Zoom') as HTMLInputElement;
 
-    expect(zoom.value).toBe('120');
+    expect(zoom.value).toBe(String(PIE_DEFAULTS.zoomPercent));
 
     fireEvent.wheel(previewCanvas, { deltaY: -100 });
     expect(zoom.value).toBe('125');

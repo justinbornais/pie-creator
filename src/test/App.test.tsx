@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import App from '../App';
+import { APP_DEFAULTS } from '../config/defaults';
 
 describe('App', () => {
   it('renders the header with app name', () => {
@@ -37,8 +38,8 @@ describe('App', () => {
 
   it('toggles the global greyscale setting', () => {
     render(<App />);
-    const greyscaleToggle = screen.getByLabelText('Greyscale');
-    expect(greyscaleToggle).not.toBeChecked();
+    const greyscaleToggle = screen.getByLabelText('Greyscale') as HTMLInputElement;
+    expect(greyscaleToggle.checked).toBe(APP_DEFAULTS.greyscale);
 
     fireEvent.click(greyscaleToggle);
     expect(greyscaleToggle).toBeChecked();

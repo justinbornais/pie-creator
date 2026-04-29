@@ -1,33 +1,28 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { AngleEntry, AngleSettings, AngleUnit, ShapeType, AngleInputMode, ExportFormat } from '../types';
+import type { AngleEntry, AngleSettings, AngleUnit, AngleInputMode, ExportFormat } from '../types';
+import {
+  ANGLE_BACKGROUND_OPTIONS,
+  ANGLE_GUIDE_DEFAULTS,
+  ANGLE_GUIDE_UNIT_OPTIONS,
+  CANVAS_SIZE_RANGE,
+  EXPORT_SETTINGS,
+  SHAPE_OPTIONS,
+  createDefaultAngleSettings,
+  createDefaultAngles,
+} from '../config/defaults';
 import { toGreyscale } from '../utils/colors';
 import { drawAngleGuide } from '../utils/drawAngle';
 import { exportCanvas } from '../utils/export';
 import { uid } from '../utils/uid';
 import { unitLabel, fullRotation } from '../utils/math';
 
-const DEFAULT_ANGLES: AngleEntry[] = [
-  { id: uid(), label: '', value: 45, color: '#333333', inputMode: 'relative', showAbsolute: false },
-  { id: uid(), label: '', value: 45, color: '#333333', inputMode: 'relative', showAbsolute: true },
-  { id: uid(), label: '', value: 30, color: '#333333', inputMode: 'relative', showAbsolute: true },
-];
-
-const DEFAULT_SETTINGS: AngleSettings = {
-  shape: 'circle',
-  angleUnit: 'degrees',
-  canvasSize: 500,
-  showBaseLabel: true,
-  backgroundColor: 'white',
-  lineColor: '#1a1a1a',
-};
-
 interface AngleGuideProps {
   greyscale?: boolean;
 }
 
 export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
-  const [angles, setAngles] = useState<AngleEntry[]>(DEFAULT_ANGLES);
-  const [settings, setSettings] = useState<AngleSettings>(DEFAULT_SETTINGS);
+  const [angles, setAngles] = useState<AngleEntry[]>(() => createDefaultAngles());
+  const [settings, setSettings] = useState<AngleSettings>(() => createDefaultAngleSettings());
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const renderAngles = angles.map((angle) => ({
@@ -62,7 +57,7 @@ export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
       {
         id: uid(),
         label: '',
-        value: 30,
+        value: ANGLE_GUIDE_DEFAULTS.newAngleValue,
         color: settings.lineColor,
         inputMode: 'relative',
         showAbsolute: false,
@@ -74,10 +69,9 @@ export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
     setAngles((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const EXPORT_DPR = 3;
   const handleExport = (format: ExportFormat) => {
     const offscreen = document.createElement('canvas');
-    drawAngleGuide(offscreen, renderAngles, renderSettings, EXPORT_DPR);
+    drawAngleGuide(offscreen, renderAngles, renderSettings, EXPORT_SETTINGS.dpr);
     exportCanvas(offscreen, format, 'angle-guide');
   };
 
@@ -93,13 +87,13 @@ export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
         <div className="control-group">
           <label>Shape</label>
           <div className="btn-group">
-            {(['circle', 'rounded-square', 'square'] as ShapeType[]).map((s) => (
+            {SHAPE_OPTIONS.map(({ value, label }) => (
               <button
-                key={s}
-                className={settings.shape === s ? 'active' : ''}
-                onClick={() => setSettings((p) => ({ ...p, shape: s }))}
+                key={value}
+                className={settings.shape === value ? 'active' : ''}
+                onClick={() => setSettings((p) => ({ ...p, shape: value }))}
               >
-                {s === 'rounded-square' ? 'Rounded' : s.charAt(0).toUpperCase() + s.slice(1)}
+                {label}
               </button>
             ))}
           </div>
@@ -113,28 +107,24 @@ export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
               setSettings((p) => ({ ...p, angleUnit: e.target.value as AngleUnit }))
             }
           >
-            <option value="degrees">Degrees (°)</option>
-            <option value="radians">Radians (rad)</option>
-            <option value="gradians">Gradians (gon)</option>
-            <option value="percentage">Percentage (%)</option>
+            {ANGLE_GUIDE_UNIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
 
         <div className="control-group">
           <label>Background</label>
           <div className="btn-group">
-            <button
-              className={settings.backgroundColor === 'white' ? 'active' : ''}
-              onClick={() => setSettings((p) => ({ ...p, backgroundColor: 'white' }))}
-            >
-              White
-            </button>
-            <button
-              className={settings.backgroundColor === 'transparent' ? 'active' : ''}
-              onClick={() => setSettings((p) => ({ ...p, backgroundColor: 'transparent' }))}
-            >
-              Transparent
-            </button>
+            {ANGLE_BACKGROUND_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                className={settings.backgroundColor === option.value ? 'active' : ''}
+                onClick={() => setSettings((p) => ({ ...p, backgroundColor: option.value }))}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -164,9 +154,9 @@ export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
           <label>Canvas Size: {settings.canvasSize}px</label>
           <input
             type="range"
-            min={200}
-            max={800}
-            step={50}
+            min={CANVAS_SIZE_RANGE.min}
+            max={CANVAS_SIZE_RANGE.max}
+            step={CANVAS_SIZE_RANGE.step}
             value={settings.canvasSize}
             onChange={(e) =>
               setSettings((p) => ({ ...p, canvasSize: Number(e.target.value) }))
@@ -254,9 +244,9 @@ export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
         {/* Export */}
         <h3>Export</h3>
         <div className="btn-group export-group">
-          <button onClick={() => handleExport('png')}>PNG</button>
-          <button onClick={() => handleExport('jpeg')}>JPEG</button>
-          <button onClick={() => handleExport('pdf')}>PDF</button>
+          {EXPORT_SETTINGS.formats.map((format) => (
+            <button key={format} onClick={() => handleExport(format)}>{format.toUpperCase()}</button>
+          ))}
         </div>
       </div>
 
