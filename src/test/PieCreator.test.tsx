@@ -78,6 +78,7 @@ describe('PieCreator', () => {
     fireEvent.click(threeDBtn);
     expect(threeDBtn.classList.contains('active')).toBe(true);
     expect(screen.getByLabelText('X Rotation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Thickness')).toBeInTheDocument();
     expect(screen.getByText('Reset Orientation')).toBeInTheDocument();
   });
 
@@ -110,6 +111,14 @@ describe('PieCreator', () => {
 
     expect(xRotation.value).toBe('40');
     expect(yRotation.value).toBe('20');
+  });
+
+  it('uses the current 3d thickness as the default percentage', () => {
+    render(<PieCreator />);
+    fireEvent.click(screen.getByText('3D'));
+
+    const thickness = screen.getByLabelText('Thickness') as HTMLInputElement;
+    expect(thickness.value).toBe('12');
   });
 
   it('toggles labels checkbox', () => {

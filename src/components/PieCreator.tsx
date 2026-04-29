@@ -12,6 +12,8 @@ const DEFAULT_PIE_ORIENTATION = {
   rotationZ: 0,
 } as const;
 
+const DEFAULT_THICKNESS_PERCENT = 12;
+
 const DRAG_ROTATION_SENSITIVITY = 0.5;
 
 const DEFAULT_SEGMENTS: PieSegment[] = [
@@ -27,6 +29,7 @@ const DEFAULT_SETTINGS: PieSettings = {
   angleUnit: 'percentage',
   displayMode: '2d',
   ...DEFAULT_PIE_ORIENTATION,
+  thicknessPercent: DEFAULT_THICKNESS_PERCENT,
   showLabels: true,
   showLegend: true,
   legendPosition: 'left',
@@ -81,6 +84,10 @@ export default function PieCreator() {
 
   const updateRotation = (axis: 'rotationX' | 'rotationY' | 'rotationZ', value: number) => {
     setSettings((prev) => ({ ...prev, [axis]: value }));
+  };
+
+  const updateThickness = (value: number) => {
+    setSettings((prev) => ({ ...prev, thicknessPercent: Math.max(0, value) }));
   };
 
   const resetOrientation = () => {
@@ -236,6 +243,18 @@ export default function PieCreator() {
                 />
               </div>
             ))}
+            <div className="control-group">
+              <label>Thickness: {Math.round(settings.thicknessPercent)}% of diameter</label>
+              <input
+                type="range"
+                min={0}
+                max={30}
+                step={1}
+                value={settings.thicknessPercent}
+                onChange={(e) => updateThickness(Number(e.target.value))}
+                aria-label="Thickness"
+              />
+            </div>
             <button className="btn-secondary" onClick={resetOrientation}>
               Reset Orientation
             </button>

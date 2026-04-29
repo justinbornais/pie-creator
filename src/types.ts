@@ -22,6 +22,7 @@ export interface PieSettings {
   rotationX: number;
   rotationY: number;
   rotationZ: number;
+  thicknessPercent: number;
   showLabels: boolean;
   showLegend: boolean;
   legendPosition: LegendPosition;

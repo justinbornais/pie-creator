@@ -18,6 +18,7 @@ interface Face {
   fill: string;
   stroke?: string;
   avgZ: number;
+  kind: 'top' | 'side' | 'bottom';
 }
 
 interface LabelPlacement {
@@ -38,7 +39,7 @@ export function drawPie3d(
   const cx = size / 2;
   const cy = size / 2 + size * 0.02;
   const radius = size * (settings.showLabels ? 0.25 : 0.29);
-  const depth = Math.max(18, radius * 0.24);
+  const depth = radius * 2 * (settings.thicknessPercent / 100);
   const cameraDistance = radius * 6;
   const topPlaneZ = depth / 2;
   const bottomPlaneZ = -depth / 2;
@@ -63,6 +64,7 @@ export function drawPie3d(
   const bottomCenter = projectPoint({ x: 0, y: 0, z: bottomPlaneZ });
   const labelPlaneZ = topCenter.z >= bottomCenter.z ? topPlaneZ : bottomPlaneZ;
   const labelColor = topCenter.z >= bottomCenter.z ? '#f8fafc' : '#cbd5e1';
+  const topOutline = buildProjectedOutline(projectPoint, radius, topPlaneZ);
 
   const faces: Face[] = [];
   const placements: LabelPlacement[] = [];
@@ -94,6 +96,7 @@ export function drawPie3d(
       points: orientFaceOutward([projectPoint({ x: 0, y: 0, z: bottomPlaneZ }), ...bottomArc]),
       fill: darkenColor(fillColors[i], 0.55),
       avgZ: averageZ(bottomArc),
+      kind: 'bottom',
     });
 
     for (let step = 0; step < steps; step++) {
@@ -104,6 +107,7 @@ export function drawPie3d(
         fill: darkenColor(fillColors[i], sideDarken),
         stroke: 'rgba(15, 23, 42, 0.18)',
         avgZ: averageZ(quad),
+        kind: 'side',
       });
     }
 
@@ -112,6 +116,7 @@ export function drawPie3d(
       fill: fillColors[i],
       stroke: 'rgba(15, 23, 42, 0.22)',
       avgZ: averageZ(topArc) + 0.001,
+      kind: 'top',
     });
 
     placements.push({
@@ -123,22 +128,20 @@ export function drawPie3d(
 
   faces.sort((a, b) => a.avgZ - b.avgZ);
 
-  for (const face of faces) {
-    if (face.points.length < 3 || !isFaceVisible(face.points)) continue;
-    ctx.beginPath();
-    ctx.moveTo(face.points[0].sx, face.points[0].sy);
-    for (let i = 1; i < face.points.length; i++) {
-      ctx.lineTo(face.points[i].sx, face.points[i].sy);
-    }
-    ctx.closePath();
-    ctx.fillStyle = face.fill;
-    ctx.fill();
+  const thicknessFaces = faces.filter((face) => face.kind !== 'top');
+  const topFaces = faces.filter((face) => face.kind === 'top');
 
-    if (face.stroke) {
-      ctx.strokeStyle = face.stroke;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+  if (depth > 0) {
+    ctx.save();
+    clipOutsideTopOutline(ctx, size, topOutline);
+    for (const face of thicknessFaces) {
+      drawFace(ctx, face);
     }
+    ctx.restore();
+  }
+
+  for (const face of topFaces) {
+    drawFace(ctx, face);
   }
 
   if (!settings.showLabels) {
@@ -237,6 +240,67 @@ function distance2d(a: ProjectedPoint, b: ProjectedPoint): number {
 function averageZ(points: ProjectedPoint[]): number {
   if (points.length === 0) return 0;
   return points.reduce((sum, point) => sum + point.z, 0) / points.length;
+}
+
+function drawFace(ctx: CanvasRenderingContext2D, face: Face): void {
+  if (face.points.length < 3 || !isFaceVisible(face.points)) {
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(face.points[0].sx, face.points[0].sy);
+  for (let i = 1; i < face.points.length; i++) {
+    ctx.lineTo(face.points[i].sx, face.points[i].sy);
+  }
+  ctx.closePath();
+  ctx.fillStyle = face.fill;
+  ctx.fill();
+
+  if (face.stroke) {
+    ctx.strokeStyle = face.stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+function buildProjectedOutline(
+  projectPoint: (point: Point3D) => ProjectedPoint,
+  radius: number,
+  z: number
+): ProjectedPoint[] {
+  const points: ProjectedPoint[] = [];
+  const steps = 96;
+
+  for (let step = 0; step < steps; step++) {
+    const angle = -90 + (360 * step) / steps;
+    const angleRad = degToRad(angle);
+    points.push(projectPoint({
+      x: Math.cos(angleRad) * radius,
+      y: Math.sin(angleRad) * radius,
+      z,
+    }));
+  }
+
+  return points;
+}
+
+function clipOutsideTopOutline(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  outline: ProjectedPoint[]
+): void {
+  if (outline.length < 3) {
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.rect(0, 0, size, size);
+  ctx.moveTo(outline[0].sx, outline[0].sy);
+  for (let i = 1; i < outline.length; i++) {
+    ctx.lineTo(outline[i].sx, outline[i].sy);
+  }
+  ctx.closePath();
+  ctx.clip('evenodd');
 }
 
 function orientFaceOutward(points: ProjectedPoint[]): ProjectedPoint[] {
