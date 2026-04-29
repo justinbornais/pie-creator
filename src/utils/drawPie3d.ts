@@ -1,6 +1,7 @@
 import type { PieSettings, PieSegment } from '../types';
 import { darkenColor } from './colors';
 import { degToRad } from './math';
+import { resolveExternalLabelLayout, type ExternalLabelCandidate } from './pieLabelLayout';
 
 interface Point3D {
   x: number;
@@ -25,6 +26,16 @@ interface LabelPlacement {
   startAngle: number;
   endAngle: number;
   label: string;
+}
+
+interface Pie3dExternalLabel {
+  label: string;
+  side: 'left' | 'right';
+  startX: number;
+  startY: number;
+  elbowX: number;
+  elbowY: number;
+  endX: number;
 }
 
 export function drawPie3d(
@@ -151,6 +162,7 @@ export function drawPie3d(
 
   const fontSize = Math.max(10, Math.min(14, radius * 0.11));
   ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+  const externalLabels: ExternalLabelCandidate<Pie3dExternalLabel>[] = [];
 
   for (const placement of placements) {
     const sweep = placement.endAngle - placement.startAngle;
@@ -170,36 +182,77 @@ export function drawPie3d(
       continue;
     }
 
-    drawExtenderLabel3d(ctx, projectPoint, radius, midAngle, labelPlaneZ, placement.label, labelColor);
+    const geometry = createExtenderLabelGeometry3d(projectPoint, radius, midAngle, labelPlaneZ, placement.label);
+    externalLabels.push({
+      side: geometry.side,
+      desiredY: geometry.elbowY,
+      payload: geometry,
+    });
+  }
+
+  const resolvedLabels = resolveExternalLabelLayout(
+    externalLabels,
+    fontSize,
+    size - fontSize,
+    fontSize + 4
+  );
+
+  for (const resolved of resolvedLabels) {
+    drawExtenderLabel3d(ctx, resolved.payload, resolved.labelY, labelColor);
   }
 }
 
-function drawExtenderLabel3d(
-  ctx: CanvasRenderingContext2D,
+function createExtenderLabelGeometry3d(
   projectPoint: (point: Point3D) => ProjectedPoint,
   radius: number,
   angleDeg: number,
   planeZ: number,
-  label: string,
-  color: string
-): void {
+  label: string
+): Pie3dExternalLabel {
   const start = projectPolarPoint(projectPoint, radius * 1.02, angleDeg, planeZ);
   const elbow = projectPolarPoint(projectPoint, radius * 1.18, angleDeg, planeZ);
-  const onRight = elbow.sx >= start.sx;
-  const endX = elbow.sx + (onRight ? 18 : -18);
+  const side = elbow.sx >= start.sx ? 'right' : 'left';
+
+  return {
+    label,
+    side,
+    startX: start.sx,
+    startY: start.sy,
+    elbowX: elbow.sx,
+    elbowY: elbow.sy,
+    endX: elbow.sx + (side === 'right' ? 18 : -18),
+  };
+}
+
+function drawExtenderLabel3d(
+  ctx: CanvasRenderingContext2D,
+  geometry: Pie3dExternalLabel,
+  labelY: number,
+  color: string
+): void {
 
   ctx.save();
   ctx.strokeStyle = '#94a3b8';
   ctx.lineWidth = 1.5;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(start.sx, start.sy);
-  ctx.lineTo(elbow.sx, elbow.sy);
-  ctx.lineTo(endX, elbow.sy);
+  ctx.moveTo(geometry.startX, geometry.startY);
+  ctx.lineTo(geometry.elbowX, geometry.elbowY);
+  if (Math.abs(labelY - geometry.elbowY) > 0.5) {
+    ctx.lineTo(geometry.elbowX, labelY);
+  }
+  ctx.lineTo(geometry.endX, labelY);
   ctx.stroke();
   ctx.restore();
 
-  drawText(ctx, label, endX + (onRight ? 4 : -4), elbow.sy, onRight ? 'left' : 'right', color);
+  drawText(
+    ctx,
+    geometry.label,
+    geometry.endX + (geometry.side === 'right' ? 4 : -4),
+    labelY,
+    geometry.side === 'right' ? 'left' : 'right',
+    color
+  );
 }
 
 function drawText(

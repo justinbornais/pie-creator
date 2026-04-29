@@ -1,7 +1,18 @@
 import type { PieSegment, PieSettings } from '../types';
 import { degToRad, toDegrees } from './math';
 import { drawPie3d } from './drawPie3d';
+import { resolveExternalLabelLayout, type ExternalLabelCandidate } from './pieLabelLayout';
 import { applyShapeClip, drawShapeOutline, drawArcLabel } from './shapes';
+
+interface PieExternalLabel {
+  label: string;
+  side: 'left' | 'right';
+  startX: number;
+  startY: number;
+  elbowX: number;
+  elbowY: number;
+  endX: number;
+}
 
 export function drawPie(
   canvas: HTMLCanvasElement,
@@ -92,6 +103,7 @@ export function drawPie(
     let angleCursor = -90;
     const fontSize = Math.max(10, Math.min(14, radius * 0.1));
     ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+    const externalLabels: ExternalLabelCandidate<PieExternalLabel>[] = [];
 
     for (let i = 0; i < segments.length; i++) {
       const sweep = normalizedDeg[i];
@@ -109,8 +121,24 @@ export function drawPie(
       if (textWidth < chord * 0.85) {
         drawArcLabel(ctx, cx, cy, radius, startAngle, startAngle + sweep, label, '#fff', fontSize);
       } else {
-        drawExtenderLabel(ctx, cx, cy, radius, startAngle, startAngle + sweep, label, fontSize);
+        const geometry = createExtenderLabelGeometry(cx, cy, radius, startAngle, startAngle + sweep, label);
+        externalLabels.push({
+          side: geometry.side,
+          desiredY: geometry.elbowY,
+          payload: geometry,
+        });
       }
+    }
+
+    const resolvedLabels = resolveExternalLabelLayout(
+      externalLabels,
+      fontSize,
+      size - fontSize,
+      fontSize + 4
+    );
+
+    for (const resolved of resolvedLabels) {
+      drawExtenderLabel(ctx, resolved.payload, fontSize, resolved.labelY);
     }
   }
 
@@ -124,50 +152,68 @@ export function drawPie(
  * Draws a leader line from the pie edge to a label outside the chart.
  * Used when the label text is too wide to fit inside the segment.
  */
-function drawExtenderLabel(
-  ctx: CanvasRenderingContext2D,
+function createExtenderLabelGeometry(
   cx: number,
   cy: number,
   radius: number,
   startAngleDeg: number,
   endAngleDeg: number,
-  label: string,
-  fontSize: number
-): void {
+  label: string
+): PieExternalLabel {
   const midAngleDeg = (startAngleDeg + endAngleDeg) / 2;
   const midAngleRad = degToRad(midAngleDeg);
 
-  const lineStart = radius + 2;  // just outside the pie edge
-  const lineEnd = radius + 16;   // end of the radial segment
-  const tickLen = 12;            // length of the horizontal cap
+  const lineStart = radius + 2;
+  const lineEnd = radius + 16;
+  const tickLen = 12;
 
   const x1 = cx + Math.cos(midAngleRad) * lineStart;
   const y1 = cy + Math.sin(midAngleRad) * lineStart;
   const x2 = cx + Math.cos(midAngleRad) * lineEnd;
   const y2 = cy + Math.sin(midAngleRad) * lineEnd;
 
-  const onRight = Math.cos(midAngleRad) >= 0;
-  const x3 = x2 + (onRight ? tickLen : -tickLen);
-  const y3 = y2;
+  const side = Math.cos(midAngleRad) >= 0 ? 'right' : 'left';
+
+  return {
+    label,
+    side,
+    startX: x1,
+    startY: y1,
+    elbowX: x2,
+    elbowY: y2,
+    endX: x2 + (side === 'right' ? tickLen : -tickLen),
+  };
+}
+
+function drawExtenderLabel(
+  ctx: CanvasRenderingContext2D,
+  geometry: PieExternalLabel,
+  fontSize: number,
+  labelY: number
+): void {
+  const verticalBendX = geometry.elbowX;
 
   ctx.save();
   ctx.strokeStyle = '#94a3b8';
   ctx.lineWidth = 1.5;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineTo(x3, y3);
+  ctx.moveTo(geometry.startX, geometry.startY);
+  ctx.lineTo(geometry.elbowX, geometry.elbowY);
+  if (Math.abs(labelY - geometry.elbowY) > 0.5) {
+    ctx.lineTo(verticalBendX, labelY);
+  }
+  ctx.lineTo(geometry.endX, labelY);
   ctx.stroke();
 
   ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
   ctx.textBaseline = 'middle';
-  ctx.textAlign = onRight ? 'left' : 'right';
-  const textX = x3 + (onRight ? 3 : -3);
+  ctx.textAlign = geometry.side === 'right' ? 'left' : 'right';
+  const textX = geometry.endX + (geometry.side === 'right' ? 3 : -3);
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillText(label, textX + 1, y3 + 1);
+  ctx.fillText(geometry.label, textX + 1, labelY + 1);
   ctx.fillStyle = '#e2e8f0';
-  ctx.fillText(label, textX, y3);
+  ctx.fillText(geometry.label, textX, labelY);
   ctx.restore();
 }
 
