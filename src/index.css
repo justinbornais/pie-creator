@@ -192,8 +192,8 @@ body {
   gap: 20px;
 }
 
-.pie-with-legend.legend-left { flex-direction: row; }
-.pie-with-legend.legend-right { flex-direction: row-reverse; }
+.pie-with-legend.legend-left { flex-direction: row-reverse; }
+.pie-with-legend.legend-right { flex-direction: row; }
 .pie-with-legend.legend-top { flex-direction: column-reverse; }
 .pie-with-legend.legend-bottom { flex-direction: column; }
 .pie-with-legend.legend-none { flex-direction: row; }
