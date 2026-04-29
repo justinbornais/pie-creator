@@ -38,7 +38,8 @@ export function drawPie3d(
   const size = settings.canvasSize;
   const cx = size / 2;
   const cy = size / 2 + size * 0.02;
-  const radius = size * (settings.showLabels ? 0.25 : 0.29);
+  const baseRadius = size * (settings.showLabels ? 0.31 : 0.35);
+  const radius = baseRadius * (settings.zoomPercent / 100);
   const depth = radius * 2 * (settings.thicknessPercent / 100);
   const cameraDistance = radius * 6;
   const topPlaneZ = depth / 2;

@@ -78,6 +78,7 @@ describe('PieCreator', () => {
     fireEvent.click(threeDBtn);
     expect(threeDBtn.classList.contains('active')).toBe(true);
     expect(screen.getByLabelText('X Rotation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zoom')).toBeInTheDocument();
     expect(screen.getByLabelText('Thickness')).toBeInTheDocument();
     expect(screen.getByText('Reset Orientation')).toBeInTheDocument();
   });
@@ -119,6 +120,14 @@ describe('PieCreator', () => {
 
     const thickness = screen.getByLabelText('Thickness') as HTMLInputElement;
     expect(thickness.value).toBe('12');
+  });
+
+  it('uses a larger default 3d zoom', () => {
+    render(<PieCreator />);
+    fireEvent.click(screen.getByText('3D'));
+
+    const zoom = screen.getByLabelText('Zoom') as HTMLInputElement;
+    expect(zoom.value).toBe('120');
   });
 
   it('toggles labels checkbox', () => {

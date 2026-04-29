@@ -13,6 +13,7 @@ const DEFAULT_PIE_ORIENTATION = {
 } as const;
 
 const DEFAULT_THICKNESS_PERCENT = 12;
+const DEFAULT_ZOOM_PERCENT = 120;
 
 const DRAG_ROTATION_SENSITIVITY = 0.5;
 
@@ -30,6 +31,7 @@ const DEFAULT_SETTINGS: PieSettings = {
   displayMode: '2d',
   ...DEFAULT_PIE_ORIENTATION,
   thicknessPercent: DEFAULT_THICKNESS_PERCENT,
+  zoomPercent: DEFAULT_ZOOM_PERCENT,
   showLabels: true,
   showLegend: true,
   legendPosition: 'left',
@@ -99,6 +101,13 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
     setSettings((prev) => ({
       ...prev,
       thicknessPercent: Math.min(100, Math.max(0.1, value)),
+    }));
+  };
+
+  const updateZoom = (value: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      zoomPercent: Math.min(200, Math.max(60, value)),
     }));
   };
 
@@ -255,6 +264,18 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
                 />
               </div>
             ))}
+            <div className="control-group">
+              <label>Zoom: {Math.round(settings.zoomPercent)}%</label>
+              <input
+                type="range"
+                min={60}
+                max={200}
+                step={1}
+                value={settings.zoomPercent}
+                onChange={(e) => updateZoom(Number(e.target.value))}
+                aria-label="Zoom"
+              />
+            </div>
             <div className="control-group">
               <label>Thickness: {Math.round(settings.thicknessPercent)}% of diameter</label>
               <input
