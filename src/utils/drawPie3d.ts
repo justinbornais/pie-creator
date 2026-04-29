@@ -1,4 +1,4 @@
-import type { PieSettings, PieSegment } from '../types';
+import type { PieSettings, PieSegment, ShapeType } from '../types';
 import { darkenColor } from './colors';
 import { degToRad } from './math';
 import { resolveExternalLabelLayout, type ExternalLabelCandidate } from './pieLabelLayout';
@@ -7,6 +7,11 @@ interface Point3D {
   x: number;
   y: number;
   z: number;
+}
+
+interface Point2D {
+  x: number;
+  y: number;
 }
 
 interface ProjectedPoint extends Point3D {
@@ -76,7 +81,7 @@ export function drawPie3d(
   const bottomCenter = projectPoint({ x: 0, y: 0, z: bottomPlaneZ });
   const labelPlaneZ = topCenter.z >= bottomCenter.z ? topPlaneZ : bottomPlaneZ;
   const labelColor = topCenter.z >= bottomCenter.z ? '#f8fafc' : '#cbd5e1';
-  const topOutline = buildProjectedOutline(projectPoint, radius, topPlaneZ);
+  const topOutline = buildProjectedOutline(projectPoint, radius, topPlaneZ, settings.shape);
 
   const faces: Face[] = [];
   const placements: LabelPlacement[] = [];
@@ -95,11 +100,7 @@ export function drawPie3d(
     for (let step = 0; step <= steps; step++) {
       const t = step / steps;
       const angle = startAngle + sweep * t;
-      const angleRad = degToRad(angle);
-      const rimPoint = {
-        x: Math.cos(angleRad) * radius,
-        y: Math.sin(angleRad) * radius,
-      };
+      const rimPoint = getShapeBoundaryPoint(radius, angle, settings.shape);
       topArc.push(projectPoint({ ...rimPoint, z: topPlaneZ }));
       bottomArc.push(projectPoint({ ...rimPoint, z: bottomPlaneZ }));
     }
@@ -156,6 +157,8 @@ export function drawPie3d(
     drawFace(ctx, face);
   }
 
+  drawProjectedOutline(ctx, topOutline, 'rgba(15, 23, 42, 0.8)', 2);
+
   if (!settings.showLabels) {
     return;
   }
@@ -171,9 +174,9 @@ export function drawPie3d(
     }
 
     const midAngle = (placement.startAngle + placement.endAngle) / 2;
-    const insidePoint = projectPolarPoint(projectPoint, radius * 0.58, midAngle, labelPlaneZ);
-    const chordStart = projectPolarPoint(projectPoint, radius * 0.58, placement.startAngle, labelPlaneZ);
-    const chordEnd = projectPolarPoint(projectPoint, radius * 0.58, placement.endAngle, labelPlaneZ);
+    const insidePoint = projectShapePoint(projectPoint, radius, midAngle, labelPlaneZ, settings.shape, 0.58);
+    const chordStart = projectShapePoint(projectPoint, radius, placement.startAngle, labelPlaneZ, settings.shape, 0.58);
+    const chordEnd = projectShapePoint(projectPoint, radius, placement.endAngle, labelPlaneZ, settings.shape, 0.58);
     const availableWidth = distance2d(chordStart, chordEnd);
     const textWidth = ctx.measureText(placement.label).width;
 
@@ -182,7 +185,14 @@ export function drawPie3d(
       continue;
     }
 
-    const geometry = createExtenderLabelGeometry3d(projectPoint, radius, midAngle, labelPlaneZ, placement.label);
+    const geometry = createExtenderLabelGeometry3d(
+      projectPoint,
+      radius,
+      midAngle,
+      labelPlaneZ,
+      placement.label,
+      settings.shape
+    );
     externalLabels.push({
       side: geometry.side,
       desiredY: geometry.elbowY,
@@ -207,10 +217,11 @@ function createExtenderLabelGeometry3d(
   radius: number,
   angleDeg: number,
   planeZ: number,
-  label: string
+  label: string,
+  shape: ShapeType
 ): Pie3dExternalLabel {
-  const start = projectPolarPoint(projectPoint, radius * 1.02, angleDeg, planeZ);
-  const elbow = projectPolarPoint(projectPoint, radius * 1.18, angleDeg, planeZ);
+  const start = projectShapePoint(projectPoint, radius, angleDeg, planeZ, shape, 1.02);
+  const elbow = projectShapePoint(projectPoint, radius, angleDeg, planeZ, shape, 1.18);
   const side = elbow.sx >= start.sx ? 'right' : 'left';
 
   return {
@@ -287,6 +298,23 @@ function projectPolarPoint(
   });
 }
 
+function projectShapePoint(
+  projectPoint: (point: Point3D) => ProjectedPoint,
+  radius: number,
+  angleDeg: number,
+  z: number,
+  shape: ShapeType,
+  radialScale = 1
+): ProjectedPoint {
+  const point = getShapeBoundaryPoint(radius, angleDeg, shape);
+
+  return projectPoint({
+    x: point.x * radialScale,
+    y: point.y * radialScale,
+    z,
+  });
+}
+
 function distance2d(a: ProjectedPoint, b: ProjectedPoint): number {
   return Math.hypot(b.sx - a.sx, b.sy - a.sy);
 }
@@ -320,22 +348,117 @@ function drawFace(ctx: CanvasRenderingContext2D, face: Face): void {
 function buildProjectedOutline(
   projectPoint: (point: Point3D) => ProjectedPoint,
   radius: number,
-  z: number
+  z: number,
+  shape: ShapeType
 ): ProjectedPoint[] {
   const points: ProjectedPoint[] = [];
   const steps = 96;
 
   for (let step = 0; step < steps; step++) {
     const angle = -90 + (360 * step) / steps;
-    const angleRad = degToRad(angle);
-    points.push(projectPoint({
-      x: Math.cos(angleRad) * radius,
-      y: Math.sin(angleRad) * radius,
-      z,
-    }));
+    points.push(projectShapePoint(projectPoint, radius, angle, z, shape));
   }
 
   return points;
+}
+
+function drawProjectedOutline(
+  ctx: CanvasRenderingContext2D,
+  outline: ProjectedPoint[],
+  strokeStyle: string,
+  lineWidth: number
+): void {
+  if (outline.length < 2) {
+    return;
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(outline[0].sx, outline[0].sy);
+  for (let i = 1; i < outline.length; i++) {
+    ctx.lineTo(outline[i].sx, outline[i].sy);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function getShapeBoundaryPoint(radius: number, angleDeg: number, shape: ShapeType): Point2D {
+  const angleRad = degToRad(angleDeg);
+  const directionX = Math.cos(angleRad);
+  const directionY = Math.sin(angleRad);
+
+  switch (shape) {
+    case 'circle':
+      return {
+        x: directionX * radius,
+        y: directionY * radius,
+      };
+    case 'square':
+      return getSquareBoundaryPoint(radius, directionX, directionY);
+    case 'rounded-square':
+      return getRoundedSquareBoundaryPoint(radius, directionX, directionY);
+  }
+}
+
+function getSquareBoundaryPoint(radius: number, directionX: number, directionY: number): Point2D {
+  const maxComponent = Math.max(Math.abs(directionX), Math.abs(directionY), 1e-6);
+  const scale = radius / maxComponent;
+
+  return {
+    x: directionX * scale,
+    y: directionY * scale,
+  };
+}
+
+function getRoundedSquareBoundaryPoint(radius: number, directionX: number, directionY: number): Point2D {
+  const cornerRadius = radius * 0.15;
+  const straightExtent = radius - cornerRadius;
+  const absX = Math.abs(directionX);
+  const absY = Math.abs(directionY);
+  const signX = directionX >= 0 ? 1 : -1;
+  const signY = directionY >= 0 ? 1 : -1;
+
+  if (absX <= 1e-6) {
+    return { x: 0, y: signY * radius };
+  }
+
+  const verticalScale = radius / absX;
+  if (absY * verticalScale <= straightExtent + 1e-6) {
+    return {
+      x: signX * radius,
+      y: directionY * verticalScale,
+    };
+  }
+
+  if (absY <= 1e-6) {
+    return { x: signX * radius, y: 0 };
+  }
+
+  const horizontalScale = radius / absY;
+  if (absX * horizontalScale <= straightExtent + 1e-6) {
+    return {
+      x: directionX * horizontalScale,
+      y: signY * radius,
+    };
+  }
+
+  const cornerCenterX = signX * straightExtent;
+  const cornerCenterY = signY * straightExtent;
+  const dot = directionX * cornerCenterX + directionY * cornerCenterY;
+  const cornerCenterLengthSq = cornerCenterX * cornerCenterX + cornerCenterY * cornerCenterY;
+  const discriminant = Math.max(
+    0,
+    dot * dot - (cornerCenterLengthSq - cornerRadius * cornerRadius)
+  );
+  const scale = dot + Math.sqrt(discriminant);
+
+  return {
+    x: directionX * scale,
+    y: directionY * scale,
+  };
 }
 
 function clipOutsideTopOutline(
