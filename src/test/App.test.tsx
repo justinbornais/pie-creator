@@ -34,4 +34,13 @@ describe('App', () => {
     fireEvent.click(screen.getByText('Pie Chart'));
     expect(screen.getByText('Pie Chart Settings')).toBeInTheDocument();
   });
+
+  it('toggles the global greyscale setting', () => {
+    render(<App />);
+    const greyscaleToggle = screen.getByLabelText('Greyscale');
+    expect(greyscaleToggle).not.toBeChecked();
+
+    fireEvent.click(greyscaleToggle);
+    expect(greyscaleToggle).toBeChecked();
+  });
 });

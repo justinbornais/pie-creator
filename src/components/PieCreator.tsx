@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { PieSegment, PieSettings, AngleUnit, ShapeType, DisplayMode, ExportFormat, LegendPosition } from '../types';
-import { paletteColor } from '../utils/colors';
+import { bwShade, paletteColor } from '../utils/colors';
 import { drawPie } from '../utils/drawPie';
 import { exportCanvas } from '../utils/export';
 import { uid } from '../utils/uid';
@@ -36,7 +36,11 @@ const DEFAULT_SETTINGS: PieSettings = {
   canvasSize: 500,
 };
 
-export default function PieCreator() {
+interface PieCreatorProps {
+  greyscale?: boolean;
+}
+
+export default function PieCreator({ greyscale = false }: PieCreatorProps) {
   const [segments, setSegments] = useState<PieSegment[]>(DEFAULT_SEGMENTS);
   const [settings, setSettings] = useState<PieSettings>(DEFAULT_SETTINGS);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,13 +52,18 @@ export default function PieCreator() {
     rotationY: number;
   } | null>(null);
 
+  const renderSegments = segments.map((segment, index) => ({
+    ...segment,
+    color: greyscale ? bwShade(index, segments.length) : segment.color,
+  }));
+
   const redraw = useCallback(() => {
     if (canvasRef.current) {
-      drawPie(canvasRef.current, segments, settings, undefined, true);
+      drawPie(canvasRef.current, renderSegments, settings, undefined, true);
     }
-  }, [segments, settings]);
+  }, [renderSegments, settings]);
 
-  const legendColors = segments.map((s) => s.color);
+  const legendColors = renderSegments.map((s) => s.color);
 
   useEffect(() => {
     redraw();
@@ -161,7 +170,7 @@ export default function PieCreator() {
   const EXPORT_DPR = 3;
   const handleExport = (format: ExportFormat) => {
     const offscreen = document.createElement('canvas');
-    drawPie(offscreen, segments, settings, EXPORT_DPR);
+    drawPie(offscreen, renderSegments, settings, EXPORT_DPR);
     exportCanvas(offscreen, format, 'pie-chart');
   };
 

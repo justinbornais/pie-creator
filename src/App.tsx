@@ -6,6 +6,7 @@ type Tab = 'pie' | 'angle';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('pie');
+  const [greyscale, setGreyscale] = useState(false);
 
   return (
     <div className="app">
@@ -30,9 +31,17 @@ export default function App() {
             Angle Guide
           </button>
         </nav>
+        <label className="header-toggle">
+          <input
+            type="checkbox"
+            checked={greyscale}
+            onChange={(e) => setGreyscale(e.target.checked)}
+          />
+          Greyscale
+        </label>
       </header>
       <main className="app-main">
-        {activeTab === 'pie' ? <PieCreator /> : <AngleGuide />}
+        {activeTab === 'pie' ? <PieCreator greyscale={greyscale} /> : <AngleGuide greyscale={greyscale} />}
       </main>
     </div>
   );

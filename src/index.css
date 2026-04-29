@@ -91,6 +91,22 @@ body {
   gap: 4px;
 }
 
+.header-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-0);
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.header-toggle input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
 .tab-btn {
   display: flex;
   align-items: center;
@@ -138,6 +154,13 @@ body {
 @media (max-width: 900px) {
   .creator-layout {
     grid-template-columns: 1fr;
+  }
+
+  .app-header {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 12px;
+    padding: 12px 24px;
   }
 }
 

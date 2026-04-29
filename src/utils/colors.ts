@@ -39,6 +39,16 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Convert a hex color to grayscale while preserving perceived luminance. */
+export function toGreyscale(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const grey = Math.round(r * 0.299 + g * 0.587 + b * 0.114);
+  const channel = grey.toString(16).padStart(2, '0');
+  return `#${channel}${channel}${channel}`;
+}
+
 /** Generate a grayscale shade for B&W mode */
 export function bwShade(index: number, total: number): string {
   if (total <= 1) return '#888888';

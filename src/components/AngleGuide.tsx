@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { AngleEntry, AngleSettings, AngleUnit, ShapeType, AngleInputMode, ExportFormat } from '../types';
+import { toGreyscale } from '../utils/colors';
 import { drawAngleGuide } from '../utils/drawAngle';
 import { exportCanvas } from '../utils/export';
 import { uid } from '../utils/uid';
@@ -20,16 +21,30 @@ const DEFAULT_SETTINGS: AngleSettings = {
   lineColor: '#1a1a1a',
 };
 
-export default function AngleGuide() {
+interface AngleGuideProps {
+  greyscale?: boolean;
+}
+
+export default function AngleGuide({ greyscale = false }: AngleGuideProps) {
   const [angles, setAngles] = useState<AngleEntry[]>(DEFAULT_ANGLES);
   const [settings, setSettings] = useState<AngleSettings>(DEFAULT_SETTINGS);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const renderAngles = angles.map((angle) => ({
+    ...angle,
+    color: greyscale ? toGreyscale(angle.color) : angle.color,
+  }));
+
+  const renderSettings = {
+    ...settings,
+    lineColor: greyscale ? toGreyscale(settings.lineColor) : settings.lineColor,
+  };
+
   const redraw = useCallback(() => {
     if (canvasRef.current) {
-      drawAngleGuide(canvasRef.current, angles, settings);
+      drawAngleGuide(canvasRef.current, renderAngles, renderSettings);
     }
-  }, [angles, settings]);
+  }, [renderAngles, renderSettings]);
 
   useEffect(() => {
     redraw();
@@ -62,7 +77,7 @@ export default function AngleGuide() {
   const EXPORT_DPR = 3;
   const handleExport = (format: ExportFormat) => {
     const offscreen = document.createElement('canvas');
-    drawAngleGuide(offscreen, angles, settings, EXPORT_DPR);
+    drawAngleGuide(offscreen, renderAngles, renderSettings, EXPORT_DPR);
     exportCanvas(offscreen, format, 'angle-guide');
   };
 
