@@ -96,7 +96,10 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
   };
 
   const updateThickness = (value: number) => {
-    setSettings((prev) => ({ ...prev, thicknessPercent: Math.max(0, value) }));
+    setSettings((prev) => ({
+      ...prev,
+      thicknessPercent: Math.min(100, Math.max(0.1, value)),
+    }));
   };
 
   const resetOrientation = () => {
@@ -256,9 +259,9 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
               <label>Thickness: {Math.round(settings.thicknessPercent)}% of diameter</label>
               <input
                 type="range"
-                min={0}
-                max={30}
-                step={1}
+                min={0.1}
+                max={100}
+                step={0.1}
                 value={settings.thicknessPercent}
                 onChange={(e) => updateThickness(Number(e.target.value))}
                 aria-label="Thickness"
