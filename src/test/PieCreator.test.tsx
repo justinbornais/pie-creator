@@ -90,7 +90,26 @@ describe('PieCreator', () => {
     expect(xRotation.value).toBe('12');
 
     fireEvent.click(screen.getByText('Reset Orientation'));
-    expect(xRotation.value).toBe('58');
+    expect(xRotation.value).toBe('30');
+  });
+
+  it('rotates the 3d preview by dragging the canvas', () => {
+    render(<PieCreator />);
+    fireEvent.click(screen.getByText('3D'));
+
+    const previewCanvas = screen.getByTestId('pie-preview-canvas');
+    const xRotation = screen.getByLabelText('X Rotation') as HTMLInputElement;
+    const yRotation = screen.getByLabelText('Y Rotation') as HTMLInputElement;
+
+    expect(xRotation.value).toBe('30');
+    expect(yRotation.value).toBe('0');
+
+    fireEvent.mouseDown(previewCanvas, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(previewCanvas, { clientX: 140, clientY: 120 });
+    fireEvent.mouseUp(previewCanvas, { clientX: 140, clientY: 120 });
+
+    expect(xRotation.value).toBe('40');
+    expect(yRotation.value).toBe('20');
   });
 
   it('toggles labels checkbox', () => {

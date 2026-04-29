@@ -7,10 +7,12 @@ import { uid } from '../utils/uid';
 import { unitLabel, fullRotation } from '../utils/math';
 
 const DEFAULT_PIE_ORIENTATION = {
-  rotationX: 58,
-  rotationY: -18,
+  rotationX: 30,
+  rotationY: 0,
   rotationZ: 0,
 } as const;
+
+const DRAG_ROTATION_SENSITIVITY = 0.5;
 
 const DEFAULT_SEGMENTS: PieSegment[] = [
   { id: uid(), label: 'Category A', value: 30, color: paletteColor(0) },
@@ -35,6 +37,13 @@ export default function PieCreator() {
   const [segments, setSegments] = useState<PieSegment[]>(DEFAULT_SEGMENTS);
   const [settings, setSettings] = useState<PieSettings>(DEFAULT_SETTINGS);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dragStateRef = useRef<{
+    pointerId: number | 'mouse';
+    startX: number;
+    startY: number;
+    rotationX: number;
+    rotationY: number;
+  } | null>(null);
 
   const redraw = useCallback(() => {
     if (canvasRef.current) {
@@ -76,6 +85,70 @@ export default function PieCreator() {
 
   const resetOrientation = () => {
     setSettings((prev) => ({ ...prev, ...DEFAULT_PIE_ORIENTATION }));
+  };
+
+  const startDrag = (pointerId: number | 'mouse', clientX: number, clientY: number) => {
+    if (settings.displayMode !== '3d' || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return;
+    }
+
+    dragStateRef.current = {
+      pointerId,
+      startX: clientX,
+      startY: clientY,
+      rotationX: settings.rotationX,
+      rotationY: settings.rotationY,
+    };
+  };
+
+  const updateDrag = (pointerId: number | 'mouse', clientX: number, clientY: number) => {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== pointerId || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return;
+    }
+
+    const deltaX = clientX - dragState.startX;
+    const deltaY = clientY - dragState.startY;
+
+    setSettings((prev) => ({
+      ...prev,
+      rotationX: clampRotation(dragState.rotationX + deltaY * DRAG_ROTATION_SENSITIVITY),
+      rotationY: normalizeRotation(dragState.rotationY + deltaX * DRAG_ROTATION_SENSITIVITY),
+    }));
+  };
+
+  const endDrag = (pointerId: number | 'mouse') => {
+    if (dragStateRef.current?.pointerId !== pointerId) {
+      return;
+    }
+
+    dragStateRef.current = null;
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    startDrag(event.pointerId, event.clientX, event.clientY);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    updateDrag(event.pointerId, event.clientX, event.clientY);
+  };
+
+  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    startDrag('mouse', event.clientX, event.clientY);
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    updateDrag('mouse', event.clientX, event.clientY);
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    endDrag(event.pointerId);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const handleMouseEnd = () => {
+    endDrag('mouse');
   };
 
   const EXPORT_DPR = 3;
@@ -291,7 +364,22 @@ export default function PieCreator() {
       {/* Canvas Preview */}
       <div className="panel preview-panel">
         <div className={`pie-with-legend legend-${settings.showLegend ? settings.legendPosition : 'none'}`}>
-          <canvas ref={canvasRef} className="preview-canvas" />
+          <canvas
+            ref={canvasRef}
+            className={`preview-canvas ${settings.displayMode === '3d' ? 'is-draggable' : ''}`}
+            data-testid="pie-preview-canvas"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseEnd}
+            onMouseLeave={handleMouseEnd}
+            onLostPointerCapture={() => {
+              dragStateRef.current = null;
+            }}
+          />
           {settings.showLegend && (
             <div className="pie-legend">
               {segments.map((seg, i) => (
@@ -306,4 +394,13 @@ export default function PieCreator() {
       </div>
     </div>
   );
+}
+
+function clampRotation(value: number): number {
+  return Math.max(-89, Math.min(89, value));
+}
+
+function normalizeRotation(value: number): number {
+  const normalized = ((value + 180) % 360 + 360) % 360 - 180;
+  return normalized === -180 ? 180 : normalized;
 }

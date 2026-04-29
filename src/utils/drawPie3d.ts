@@ -91,13 +91,13 @@ export function drawPie3d(
     }
 
     faces.push({
-      points: [projectPoint({ x: 0, y: 0, z: bottomPlaneZ }), ...bottomArc],
+      points: orientFaceOutward([projectPoint({ x: 0, y: 0, z: bottomPlaneZ }), ...bottomArc]),
       fill: darkenColor(fillColors[i], 0.55),
       avgZ: averageZ(bottomArc),
     });
 
     for (let step = 0; step < steps; step++) {
-      const quad = [topArc[step], topArc[step + 1], bottomArc[step + 1], bottomArc[step]];
+      const quad = orientFaceOutward([topArc[step], topArc[step + 1], bottomArc[step + 1], bottomArc[step]]);
       const sideDarken = 0.32 + (step / steps) * 0.12;
       faces.push({
         points: quad,
@@ -108,7 +108,7 @@ export function drawPie3d(
     }
 
     faces.push({
-      points: [projectPoint({ x: 0, y: 0, z: topPlaneZ }), ...topArc],
+      points: orientFaceOutward([projectPoint({ x: 0, y: 0, z: topPlaneZ }), ...topArc]),
       fill: fillColors[i],
       stroke: 'rgba(15, 23, 42, 0.22)',
       avgZ: averageZ(topArc) + 0.001,
@@ -124,7 +124,7 @@ export function drawPie3d(
   faces.sort((a, b) => a.avgZ - b.avgZ);
 
   for (const face of faces) {
-    if (face.points.length < 3) continue;
+    if (face.points.length < 3 || !isFaceVisible(face.points)) continue;
     ctx.beginPath();
     ctx.moveTo(face.points[0].sx, face.points[0].sy);
     for (let i = 1; i < face.points.length; i++) {
@@ -237,6 +237,72 @@ function distance2d(a: ProjectedPoint, b: ProjectedPoint): number {
 function averageZ(points: ProjectedPoint[]): number {
   if (points.length === 0) return 0;
   return points.reduce((sum, point) => sum + point.z, 0) / points.length;
+}
+
+function orientFaceOutward(points: ProjectedPoint[]): ProjectedPoint[] {
+  if (points.length < 3) {
+    return points;
+  }
+
+  const normal = computeFaceNormal(points);
+  const center = computeFaceCenter(points);
+  const outwardScore = normal.x * center.x + normal.y * center.y + normal.z * center.z;
+
+  if (outwardScore >= 0) {
+    return points;
+  }
+
+  return [points[0], ...points.slice(1).reverse()];
+}
+
+function isFaceVisible(points: ProjectedPoint[]): boolean {
+  return computeFaceNormal(points).z > 0;
+}
+
+function computeFaceCenter(points: ProjectedPoint[]): Point3D {
+  const total = points.reduce(
+    (sum, point) => ({
+      x: sum.x + point.x,
+      y: sum.y + point.y,
+      z: sum.z + point.z,
+    }),
+    { x: 0, y: 0, z: 0 }
+  );
+
+  return {
+    x: total.x / points.length,
+    y: total.y / points.length,
+    z: total.z / points.length,
+  };
+}
+
+function computeFaceNormal(points: ProjectedPoint[]): Point3D {
+  const origin = points[0];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const edgeA = {
+      x: points[i].x - origin.x,
+      y: points[i].y - origin.y,
+      z: points[i].z - origin.z,
+    };
+    const edgeB = {
+      x: points[i + 1].x - origin.x,
+      y: points[i + 1].y - origin.y,
+      z: points[i + 1].z - origin.z,
+    };
+    const normal = {
+      x: edgeA.y * edgeB.z - edgeA.z * edgeB.y,
+      y: edgeA.z * edgeB.x - edgeA.x * edgeB.z,
+      z: edgeA.x * edgeB.y - edgeA.y * edgeB.x,
+    };
+    const magnitude = Math.hypot(normal.x, normal.y, normal.z);
+
+    if (magnitude > 1e-6) {
+      return normal;
+    }
+  }
+
+  return { x: 0, y: 0, z: 0 };
 }
 
 function rotatePoint(point: Point3D, rx: number, ry: number, rz: number): Point3D {

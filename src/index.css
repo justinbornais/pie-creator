@@ -185,6 +185,15 @@ body {
   height: auto;
 }
 
+.preview-canvas.is-draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.preview-canvas.is-draggable:active {
+  cursor: grabbing;
+}
+
 /* ── Pie Legend ── */
 .pie-with-legend {
   display: flex;
@@ -459,6 +468,7 @@ input[type='range'] {
   width: 100%;
   padding: 9px 12px;
   margin-top: 4px;
+  margin-bottom: 14px;
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
