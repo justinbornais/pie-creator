@@ -278,7 +278,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
               <label>Zoom: {Math.round(settings.zoomPercent)}%</label>
               <input
                 type="range"
-                min={60}
+                min={10}
                 max={200}
                 step={1}
                 value={settings.zoomPercent}
@@ -469,5 +469,5 @@ function normalizeRotation(value: number): number {
 }
 
 function clampZoomPercent(value: number): number {
-  return Math.min(200, Math.max(60, value));
+  return Math.min(200, Math.max(10, value));
 }
