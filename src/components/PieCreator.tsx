@@ -16,6 +16,7 @@ const DEFAULT_THICKNESS_PERCENT = 12;
 const DEFAULT_ZOOM_PERCENT = 120;
 
 const DRAG_ROTATION_SENSITIVITY = 0.5;
+const WHEEL_ZOOM_SENSITIVITY = 0.05;
 
 const DEFAULT_SEGMENTS: PieSegment[] = [
   { id: uid(), label: 'Category A', value: 30, color: paletteColor(0) },
@@ -107,7 +108,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
   const updateZoom = (value: number) => {
     setSettings((prev) => ({
       ...prev,
-      zoomPercent: Math.min(200, Math.max(60, value)),
+      zoomPercent: clampZoomPercent(value),
     }));
   };
 
@@ -177,6 +178,15 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
 
   const handleMouseEnd = () => {
     endDrag('mouse');
+  };
+
+  const handleWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    if (settings.displayMode !== '3d') {
+      return;
+    }
+
+    event.preventDefault();
+    updateZoom(settings.zoomPercent - event.deltaY * WHEEL_ZOOM_SENSITIVITY);
   };
 
   const EXPORT_DPR = 3;
@@ -428,6 +438,7 @@ export default function PieCreator({ greyscale = false }: PieCreatorProps) {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseEnd}
             onMouseLeave={handleMouseEnd}
+            onWheel={handleWheel}
             onLostPointerCapture={() => {
               dragStateRef.current = null;
             }}
@@ -455,4 +466,8 @@ function clampRotation(value: number): number {
 function normalizeRotation(value: number): number {
   const normalized = ((value + 180) % 360 + 360) % 360 - 180;
   return normalized === -180 ? 180 : normalized;
+}
+
+function clampZoomPercent(value: number): number {
+  return Math.min(200, Math.max(60, value));
 }

@@ -130,6 +130,22 @@ describe('PieCreator', () => {
     expect(zoom.value).toBe('120');
   });
 
+  it('zooms the 3d preview with the scroll wheel', () => {
+    render(<PieCreator />);
+    fireEvent.click(screen.getByText('3D'));
+
+    const previewCanvas = screen.getByTestId('pie-preview-canvas');
+    const zoom = screen.getByLabelText('Zoom') as HTMLInputElement;
+
+    expect(zoom.value).toBe('120');
+
+    fireEvent.wheel(previewCanvas, { deltaY: -100 });
+    expect(zoom.value).toBe('125');
+
+    fireEvent.wheel(previewCanvas, { deltaY: 200 });
+    expect(zoom.value).toBe('115');
+  });
+
   it('toggles labels checkbox', () => {
     render(<PieCreator />);
     const labelsCheckbox = screen.getByLabelText('Show Labels');
